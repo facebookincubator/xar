@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import unittest
 
-from tools.xar import xar_util
+from xar import xar_util
 
 class XarUtilTest(unittest.TestCase):
     def test_xar_factory(self):

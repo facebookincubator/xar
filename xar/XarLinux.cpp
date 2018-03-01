@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <cstdlib>
 
-#include "tools/xar/XarHelpers.h"
+#include "XarHelpers.h"
 
 #define FUSE_SUPER_MAGIC 0x65735546
 

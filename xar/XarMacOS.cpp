@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <cstdio>
 
-#include "tools/xar/XarHelpers.h"
+#include "XarHelpers.h"
 
 // Unmount on macOS.
 const char* tools::xar::UNMOUNT_CMD = "umount ";

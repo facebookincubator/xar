@@ -33,7 +33,7 @@ import time
 import zipfile
 import argparse
 
-from tools.xar import xar_util
+from xar import xar_util
 
 MAX_SHEBANG = 128  # from linux/include/linux/binfmts.h's BINPRM_BUF_SIZE
 

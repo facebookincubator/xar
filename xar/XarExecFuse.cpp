@@ -49,7 +49,7 @@
 #include <unistd.h>
 #include <cstdlib>
 
-#include "tools/xar/XarHelpers.h"
+#include "XarHelpers.h"
 
 namespace {
 
