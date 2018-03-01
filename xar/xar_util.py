@@ -9,18 +9,101 @@ import os
 import re
 import shutil
 import struct
+import subprocess
+import tempfile
 import time
 import stat
 import sys
+import uuid
 
-from lar_util import lar_boot_commands
+from xar.lar_util import lar_boot_commands
 
-# 'Mount' XarFactory stuff into this namespace
-from make_par.xar_factory import make_uuid, XarFactory
-make_uuid = make_uuid  # shh, lint
-XarFactory = XarFactory  # shh, lint
+logger = logging.getLogger('xar')
 
-logger = logging.getLogger('tools.xar')
+
+def make_uuid():
+    # ugh line length limit; we need a small uuid
+    return str(uuid.uuid1()).split("-")[0]
+
+
+class XarFactory(object):
+    """A class for creating XAR files.
+
+    Pretty straight forward; take an input directory, output file, and some
+    metadata and produce a XAR file of the contents.
+    """
+    def __init__(self, dirname, output, header_prefix):
+        self.dirname = dirname
+        self.output = output
+        self.header_prefix = header_prefix
+        self.xar_header = {}
+        self.compression_algorithm = 'zstd'
+        self.block_size = 256 * 1024
+        self.zstd_level = 16
+        self.uuid = None
+        self.version = None
+        self.sort_file = None
+
+    def go(self):
+        "Make the XAR file."
+        logger.info("Squashing %s to %s" % (self.dirname, self.output))
+        if self.uuid is None:
+            self.uuid = make_uuid()
+
+        if self.version is None:
+            self.version = time.time()
+
+        tf = tempfile.NamedTemporaryFile(delete=False)
+        # Create!
+        cmd = ["/usr/sbin/mksquashfs", self.dirname, tf.name, "-noappend",
+               '-noI', '-noX',  # is this worth it?  probably
+               '-force-uid', 'nobody',
+               '-force-gid', 'nobody',
+               '-b', str(self.block_size),
+               "-comp", self.compression_algorithm]
+        if self.compression_algorithm == 'zstd':
+            cmd.extend(('-Xcompression-level', str(self.zstd_level)))
+
+        if self.sort_file:
+            cmd.extend(['-sort', self.sort_file])
+
+        if sys.stdout.isatty():
+            subprocess.check_call(cmd)
+        else:
+            with open("/dev/null", "wb") as f:
+                subprocess.check_call(cmd, stdout=f)
+
+        headers = [self.header_prefix]
+        # Take the squash file, create a header, and write it
+        with open(self.output, "wb") as of:
+            # Make a "safe" header that is easily parsed and also not
+            # going to explode if accidentally executed.
+            headers.append('OFFSET="$OFFSET"')
+            headers.append('UUID="$UUID"')
+            headers.append('VERSION="%d"' % self.version)
+            for key, val in self.xar_header.items():
+                headers.append('%s="%s"' % (key, str(val).replace('"', ' ')))
+            headers.append("#xar_stop")
+            headers.append("echo This XAR file should not be executed by sh")
+            headers.append("exit 1")
+            headers.append("# Actual squashfs file begins at $OFFSET")
+            text_headers = "\n".join(headers) + '\n'
+            # 128 is to account for expansion of $OFFSET and $UUID;
+            # it's well over what they might reasonably be.
+            header_size = 4096 + (128 + len(text_headers)) // 4096
+            text_headers = text_headers.replace("$OFFSET", "%d" % header_size)
+            text_headers = text_headers.replace("$UUID", self.uuid)
+            text_headers += '\n' * (header_size - len(text_headers))
+            of.write(text_headers.encode('UTF-8'))
+
+            # Now append the squashfs file to the header.
+            with open(tf.name, "rb") as rf:
+                while True:
+                    data = rf.read(1024 * 1024)
+                    if not data:
+                        break
+                    of.write(data)
+
 
 # Simple class to represent a partition destination.  Each destination
 # is a path and a uuid from which the contents come (ie, the uuid of
@@ -28,6 +111,7 @@ logger = logging.getLogger('tools.xar')
 # partition; used for symlink construction).
 PartitionDestination = collections.namedtuple(
     'PartitionDestination', 'path uuid')
+
 
 def partition_files(source_dir,
                     dest_dir,
@@ -95,6 +179,7 @@ def partition_files(source_dir,
             else:
                 sys.stderr.write("Unable to read %s, skipping\n" % src)
 
+
 def extract_pyc_timestamp(path):
     "Extract the embedded timestamp from a pyc file"
 
@@ -106,6 +191,7 @@ def extract_pyc_timestamp(path):
     with open(path, "rb") as fh:
         prefix = fh.read(8)
         return struct.unpack(b'<I', prefix[4:])[0]
+
 
 def extract_par_file(zf, output_dir):
     "Extract a par file (aka a zip file), fixing pyc timestamps as needed."
@@ -143,6 +229,7 @@ def extract_par_file(zf, output_dir):
             if not path.endswith(".py"):
                 raise e
 
+
 def extract_manifest_info(zf_path, zf):
     """
     Extract information we need from the par file's manifest; in particular,
@@ -170,6 +257,7 @@ def extract_manifest_info(zf_path, zf):
             info['ld_preload'] = m.group(1) if m else ''
 
     return info
+
 
 def lua_bootstrap(interpreter):
     """
