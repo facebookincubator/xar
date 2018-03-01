@@ -1,0 +1,87 @@
+#!/bin/sh -eu
+# PYTHON_ARGCOMPLETE_DISABLED
+
+# From tools/make_par/make_par.py
+function readlink_e() {{
+    local path="$1"
+    readlink -e "$path" 2>/dev/null && return
+
+    # macosx / bsd readlink doesn't support -e
+    # so use pwd -P with some recursive readlinking
+
+    # strip trailing /
+    path="${{path%/}}"
+
+    # make path an absolute path
+    if [[ "${{path:0:1}}" != "/" ]]
+    then
+        path="$(pwd -P)/$path"
+    fi
+
+    local slash_basename=""
+    local counter=0
+    while [[ -h "$path" ]]
+    do
+        if [[ counter -gt 200 ]]
+        then
+            echo "ERROR: Cyclical symbolic link detected: $path" 1>&2
+            return
+        fi
+        counter=$(( counter + 1 ))
+
+        target="$(readlink "$path")"
+        if [[ "${{target:0:1}}" == "/" ]]
+        then
+            path="$target"
+        else
+            slash_basename="/$(basename "$path")"
+            path="${{path%$slash_basename}}/$target"
+        fi
+    done
+
+    # determine the target
+    slash_basename="/$(basename "$path")"
+    if [[ "$slash_basename" == "/.." || "$slash_basename" == "/." ]]
+    then
+        slash_basename=""
+    fi
+    local parent_dir="${{path%$slash_basename}}"
+
+    # subshell to preserve the cwd (instead of pushd/popd)
+    (cd "$parent_dir"; echo "$(pwd -P)$slash_basename")
+}}
+
+set -o pipefail
+
+BOOTSTRAP_PATH="$0"
+ORIGINAL_EXECUTABLE="$1"; shift
+DIR=$(dirname "$BOOTSTRAP_PATH")
+
+# Save any existing LD_LIBRARY_PATH
+if [ -n "${{LD_LIBRARY_PATH+SET}}" ]; then
+  export FB_SAVED_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
+fi
+
+# Don't inherit PYTHONPATH.  We set it to be the XAR mountpoint.
+if [ -n "${{PYTHONPATH+SET}}" ]; then
+  export FB_SAVED_PYTHONPATH=$PYTHONPATH
+fi
+# Set PYTHONHOME so it doesn't automatically detect the wrong env
+# Context can be found in http://fburl.com/15080105
+if [ -n "${{PYTHONHOME+SET}}" ]; then
+  export FB_SAVED_PYTHONHOME=$PYTHONHOME
+fi
+
+export SCRIBE_LOG_USAGE=${{SCRIBE_LOG_USAGE:-yes}}
+export FB_XAR_INVOKED_NAME="$ORIGINAL_EXECUTABLE"
+export LD_LIBRARY_PATH="$DIR"
+export PYTHONHOME={python_home}
+export PYTHONPATH="$DIR"
+export FB_PAR_RUNTIME_FILES
+FB_PAR_RUNTIME_FILES="$(dirname "$(readlink_e "$BOOTSTRAP_PATH")")"
+export FB_XAR_MAIN_MODULE="{main_module}"
+export FB_PYTHON_COMMAND="{python_command}"
+
+export LC_ALL= LC_CTYPE=en_US.UTF-8
+test -n "{ld_preload}" && export LD_PRELOAD="{ld_preload}"
+exec -a "[xarexec] $FB_XAR_INVOKED_NAME" {python_command} "$DIR/__run_xar_main__.py" "$@"

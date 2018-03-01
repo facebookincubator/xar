@@ -1,0 +1,5 @@
+# xar-related crontabs; we put the crontab here to keep it in sync
+# with our mount_xar command line.
+MAIL=
+RANDOM_DELAY=60
+0 * * * * root /bin/clean_xar_mounts
