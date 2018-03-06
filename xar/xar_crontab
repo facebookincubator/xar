@@ -2,4 +2,4 @@
 # with our mount_xar command line.
 MAIL=
 RANDOM_DELAY=60
-0 * * * * root /bin/clean_xar_mounts
+0 3 * * * root /bin/clean_xar_mounts
