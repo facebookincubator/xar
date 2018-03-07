@@ -1,56 +1,31 @@
 #include <algorithm>
-#include <array>
-#include <iostream>
 #include <string>
 #include <vector>
 
 #include <libproc.h>
-#include <sys/mount.h>
+#include <pwd.h>
 #include <sys/proc_info.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <cstdio>
 
 #include "XarHelpers.h"
+
+// This is clowny, but it works. This is an undocumented function built into
+// libc/libSystem on macOS. It actually returns all groups a user is a member
+// of (unlike getgroups, which only returns up to some maximum).
+// Needs C-linkage since it's in libc/libSystem.
+extern "C" {
+int32_t getgrouplist_2(const char* username, gid_t base_gid, gid_t** gids);
+}
 
 // Unmount on macOS.
 const char* tools::xar::UNMOUNT_CMD = "umount ";
 
-// Gets the output of a system command (similar to python's
-// subprocess.call_output).
-std::string call_output(const std::string& cmd) {
-  FILE* out_file = popen(cmd.c_str(), "r");
-  if (!out_file) {
-    return "";
-  }
-
-  // Get output from command.
-  constexpr size_t size = 256;
-  std::array<char, size> buffer;
-  std::string output;
-  while (!std::feof(out_file)) {
-    if (std::fgets(buffer.data(), buffer.size(), out_file) != nullptr) {
-      output.append(buffer.data());
-    }
-  }
-
-  pclose(out_file);
-  return output;
-}
-
 bool tools::xar::is_user_in_group(gid_t dir_gid) {
-  auto user_groups = call_output("id -G " + std::to_string(geteuid()));
-  if (user_groups.empty()) {
-    return false;
-  }
-
-  auto str_gids = split(' ', user_groups);
-  return std::find_if(
-             std::begin(str_gids),
-             std::end(str_gids),
-             [dir_gid](const std::string& gid_str) {
-               return static_cast<gid_t>(std::stoi(gid_str)) == dir_gid;
-             }) != std::end(str_gids);
+  auto user = getpwuid(geteuid());
+  gid_t* gids = nullptr;
+  auto ngroups = getgrouplist_2(user->pw_name, user->pw_gid, &gids);
+  PCHECK_SIMPLE(ngroups > -1);
+  return std::find(gids, gids + ngroups, dir_gid) != gids + ngroups;
 }
 
 // macOS doesn't have /proc, so use proc_pidinfo() instead (see
@@ -58,10 +33,7 @@ bool tools::xar::is_user_in_group(gid_t dir_gid) {
 void tools::xar::close_non_std_fds() {
   // Get list of pids (and their types).
   int buffer_size = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nullptr, 0);
-  if (buffer_size < 0) {
-    std::cerr << "Can't get open fd's on macOS, bailing" << std::endl;
-    abort();
-  }
+  PCHECK_SIMPLE(buffer_size > -1);
   auto num_pids = static_cast<size_t>(buffer_size) / sizeof(proc_fdinfo);
   std::vector<proc_fdinfo> proc_fds(num_pids, proc_fdinfo{});
   proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, proc_fds.data(), buffer_size);
