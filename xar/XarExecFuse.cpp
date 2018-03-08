@@ -53,6 +53,12 @@
 
 namespace {
 
+#ifdef __APPLE__
+constexpr bool kIsDarwin = true;
+#else
+constexpr bool kIsDarwin = false;
+#endif
+
 // Headers we specifically look for.
 const char* kOffsetName = "OFFSET";
 const char* kXarexecTarget = "XAREXEC_TARGET";
@@ -116,6 +122,13 @@ std::string get_user_basedir(const std::string& basedir) {
   auto ret = basedir + "/uid-" + std::to_string(geteuid());
 
   mkdir(ret.c_str(), 0755); // ignore failure
+
+  // On macOS, mkdir sets the new directory's group to the enclosing directory,
+  // which is not necessarily owned by the euid executing the xar. Instead,
+  // chown() the new directory to the euid and egid.
+  if (kIsDarwin) {
+    chown(ret.c_str(), geteuid(), getegid()); // ignore failure
+  }
   check_file_sanity(ret, Expectation::Directory, 0755);
   return ret;
 }
@@ -440,6 +453,14 @@ int main(int argc, char** argv) {
            << ": " << strerror(errno) << endl;
       abort();
     }
+  }
+
+  // On macOS, mkdir sets the new directory's group to the enclosing directory,
+  // which is not necessarily owned by the euid executing the xar. Instead,
+  // chown() the new directory to the euid and egid.
+  if (kIsDarwin) {
+    auto ret = chown(mount_path.c_str(), geteuid(), getegid());
+    PCHECK_SIMPLE(ret == 0);
   }
 
   // TODO(chip): also mount DEPENDENCIES
