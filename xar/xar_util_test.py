@@ -118,6 +118,58 @@ class XarUtilTest(unittest.TestCase):
 
         self.assertDirectoryEquals(srcdir, dstdir)
 
+    def test_align_offset(self):
+        self.assertEquals(0, xar_util._align_offset(0))
+        self.assertEquals(4096, xar_util._align_offset(1))
+        self.assertEquals(4096, xar_util._align_offset(4095))
+        self.assertEquals(4096, xar_util._align_offset(4096))
+        self.assertEquals(8192, xar_util._align_offset(4097))
+
+    def test_long_header(self):
+        """Test headers longer than 4096 bytes"""
+        # Make a boring xar file.
+        srcdir = self.make_test_skeleton()
+
+        tf = tempfile.NamedTemporaryFile(delete=False)
+        xar = xar_util.XarFactory(srcdir, tf.name, "#!boring shebang")
+        xar.compression_algorithm = 'lzo'
+        xar.block_size = 4096
+        xar.xar_header["IGNORED"] = "0" * 5000
+        xar.go()
+
+        # Make sure the header is what we expect; also grab the offset.
+        with open(tf.name, "rb") as fh:
+            first_line = fh.readline()
+            self.assertEquals(first_line, b"#!boring shebang\n")
+            saw_stop = False
+            offset = None
+            for line in fh:
+                if line == b"#xar_stop\n":
+                    saw_stop = True
+                    break
+                if line.startswith(b"OFFSET="):
+                    offset = int(line[8:-2])
+            self.assertTrue(saw_stop)
+            self.assertEquals(offset, 8192)
+
+            fh.seek(offset)
+            squashfs_contents = fh.read()
+
+        # Write the squashfs file out, expand it, and make sure it
+        # contains the same files as the source.
+        outdir = os.path.join(tempfile.mkdtemp(), 'squashfs-root')
+        with tempfile.NamedTemporaryFile() as out, \
+             open("/dev/null", "wb") as devnull:
+            out.write(squashfs_contents)
+            out.flush()
+            subprocess.check_call(
+                ["/usr/sbin/unsquashfs",
+                 '-d', outdir,
+                 '-no-xattrs',
+                 out.name], stdout=devnull)
+
+        self.assertDirectoryEquals(srcdir, outdir)
+
     def assertDirectoryEquals(self, src, dst):
         """Verify two directories contain the same entries, recursively.  Does
         not verify file contents, merely filenames."""

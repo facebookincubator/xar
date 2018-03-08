@@ -26,6 +26,13 @@ def make_uuid():
     return str(uuid.uuid1()).split("-")[0]
 
 
+def _align_offset(offset, align=4096):
+    """Aligns the offset to the given alignment"""
+    mask = align - 1
+    assert (mask & align) == 0
+    return (offset + mask) & (~mask)
+
+
 class XarFactory(object):
     """A class for creating XAR files.
 
@@ -90,7 +97,7 @@ class XarFactory(object):
             text_headers = "\n".join(headers) + '\n'
             # 128 is to account for expansion of $OFFSET and $UUID;
             # it's well over what they might reasonably be.
-            header_size = 4096 + (128 + len(text_headers)) // 4096
+            header_size = _align_offset(128 + len(text_headers))
             text_headers = text_headers.replace("$OFFSET", "%d" % header_size)
             text_headers = text_headers.replace("$UUID", self.uuid)
             text_headers += '\n' * (header_size - len(text_headers))
