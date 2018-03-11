@@ -409,11 +409,10 @@ int main(int argc, char** argv) {
     abort();
   }
 
-  // Path is /mnt/xarfuse/uid-N-ns-Y/UUID; we make directories under
-  // /mnt/xarfuse as needed. Replace /mnt/xarfuse with custom
-  // values as specified.
+  // Path is /mnt/xarfuse/uid-N/UUID-ns-Y; we make directories under
+  // /mnt/xarfuse as needed. Replace /mnt/xarfuse with custom values
+  // as specified.
   std::string user_basedir = get_user_basedir(mountroot);
-  std::string mount_path = user_basedir + "/" + uuid;
 
   // mtab sucks.  In some environments, particularly centos6, when
   // mtab is shared between different mount namespaces, we want to
@@ -424,12 +423,11 @@ int main(int argc, char** argv) {
   // namespace IDs, so while namespace helps with concurrent jobs, it
   // can fail with jobs run after other jobs.
   auto env_seed = getenv("XAR_MOUNT_SEED");
+  std::string mount_directory = uuid;
   if (env_seed && *env_seed && strchr(env_seed, '/') == nullptr) {
-    mount_path += "-seed-";
-    mount_path += env_seed;
+    mount_directory += "-seed-";
+    mount_directory += env_seed;
   }
-
-  const size_t squashfuse_idle_timeout = get_squashfuse_timeout();
 
   // Try to determine our mount namespace id (via the inode on
   // /proc/self/ns/mnt); if we can, make that part of our mountpoint's
@@ -438,15 +436,21 @@ int main(int argc, char** argv) {
   // shared among them.  See t12007704 for details.
   // Note: will fail on macOS.
   if (stat("/proc/self/ns/mnt", &st) == 0) {
-    mount_path += "-ns-" + std::to_string(st.st_ino);
+    mount_directory += "-ns-" + std::to_string(st.st_ino);
   }
 
+  const size_t squashfuse_idle_timeout = get_squashfuse_timeout();
+
+  auto mount_path = user_basedir + "/" + mount_directory;
   if (print_only) {
     cout << mount_path << endl;
     return 0;
   }
 
-  int lock_fd = grab_lock(user_basedir + "/lockfile." + uuid);
+  // Our lockfile for directory /mnt/xarfuse/uid-N/UUID-ns-Y is
+  // /mnt/xarfuse/uid-N/lockfile.UUID-ns-Y.
+  auto lockfile = user_basedir + "/lockfile." + mount_directory;
+  int lock_fd = grab_lock(lockfile);
   if (mkdir(mount_path.c_str(), 0755) != 0) {
     if (errno != EEXIST) {
       cerr << "mkdir failed"

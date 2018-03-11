@@ -61,6 +61,34 @@ fn flock_with_timeout(fd: RawFd, timeout_sec: u64) -> bool {
     false
 }
 
+#[cfg(test)]
+extern crate tempfile;
+#[cfg(test)]
+use std::os::unix::io::AsRawFd;
+
+#[test]
+fn test_flock_with_timeout() {
+    // Basic test; create a tempfile, lock it, then ensure we can't
+    // re-lock it until closing the original file.
+    let tf1 = tempfile::NamedTempFile::new().unwrap();
+    let fd1 = tf1.as_raw_fd();
+    assert!(flock_with_timeout(fd1, 10));
+
+    // We have to re-open rather than dup because dup copies the lock,
+    // too.
+    let tf2 = File::open(tf1.path()).unwrap();
+    let fd2 = tf2.as_raw_fd();
+    assert!(!flock_with_timeout(fd2, 1));
+
+    // Drop the tempfile, which closes the fd; ensure we can now
+    // perform a lock.
+    let tf3 = File::open(tf1.path()).unwrap();
+    let fd3 = tf3.as_raw_fd();
+    drop(tf1);
+
+    assert!(flock_with_timeout(fd3, 1));
+}
+
 #[derive(Clone)]
 struct MountNamespaceInfo {
     namespace_path: PathBuf,
@@ -156,6 +184,22 @@ fn get_mounts(
     return Ok(mounts);
 }
 
+// Simple test to exercise walking the host's mounts and mount
+// namespaces.
+#[test]
+fn parse_mounts_test() {
+    let logger = setup_logger(slog::Level::Debug);
+    let mount_namespaces = get_mount_namespaces().unwrap();
+    assert!(mount_namespaces.len() > 0);
+    for nsinfo in mount_namespaces {
+        let mounts = get_mounts(&nsinfo, &logger).unwrap();
+        assert!(mounts.len() > 0);
+        for mount in mounts {
+            let _result = should_unmount(&logger, &mount, 1).unwrap();
+        }
+    }
+}
+
 /// Basic structure representing whether we should or shouldn't
 /// unmount a given mountpoint.  In some cases, we need to hold a
 /// flock'd fd open until the rmdir is performed, so we track the
@@ -213,23 +257,65 @@ impl Drop for NamespaceSaver {
     }
 }
 
-/// Check whether a mount point should be unmounted.  We only consider
-/// squashfuse mounts in the correct locations.  Returns a
-/// ShouldUnmountResult.
-fn should_unmount(
-    logger: &slog::Logger,
-    mount: &MountedFilesystem,
-    timeout: u32,
-) -> Result<ShouldUnmountResult> {
-    // Only consider certain mount types.
-    match mount.fstype.as_str() {
-        "fuse.squashfuse" | "fuse.squashfuse_ll" | "osxfusefs" | "osxfuse" => {}
-        _ => return Ok(ShouldUnmountResult::new(false, None)),
+#[test]
+fn get_lockfile_test() {
+    // Helper to make a MountedFilesystem object.
+    fn make_mf(mountpoint: &str) -> MountedFilesystem {
+        MountedFilesystem {
+            mountpoint: String::from(mountpoint),
+            chroot: PathBuf::from("/"),
+            fstype: String::from("fuse.squashfuse_ll"),
+        }
     }
-    info!(
-        logger,
-        "Considering {} ({})", mount.mountpoint, mount.fstype
+
+    let logger = setup_logger(slog::Level::Debug);
+
+    // Confirm parsing a non-seed'd directory works
+    let mf = make_mf("/mnt/xarfuse/uid-0/8f583eae-ns-4026531840");
+    assert_eq!(
+        get_lockfile_path(&logger, &mf),
+        vec![
+            PathBuf::from("/mnt/xarfuse/uid-0/lockfile.8f583eae-ns-4026531840"),
+            PathBuf::from("/mnt/xarfuse/uid-0/lockfile.8f583eae"),
+        ]
     );
+
+    // Confirm parsing a non-seed'd /dev/shm directory works
+    let mf = make_mf("/dev/shm/uid-0/8f583eae-ns-4026531840");
+    assert_eq!(
+        get_lockfile_path(&logger, &mf),
+        vec![
+            PathBuf::from("/dev/shm/uid-0/lockfile.8f583eae-ns-4026531840"),
+            PathBuf::from("/dev/shm/uid-0/lockfile.8f583eae"),
+        ],
+    );
+
+    // Confirm parsing a seed'd directory works
+    let mf = make_mf("/mnt/xarfuse/uid-0/8f583eae-seed-test-ns-4026531840");
+    assert_eq!(
+        get_lockfile_path(&logger, &mf),
+        vec![
+            PathBuf::from("/mnt/xarfuse/uid-0/lockfile.8f583eae-seed-test-ns-4026531840"),
+            PathBuf::from("/mnt/xarfuse/uid-0/lockfile.8f583eae"),
+        ],
+    );
+
+    // Confirm parsing a seed'd directory with dashes works
+    let mf = make_mf("/mnt/xarfuse/uid-0/8f583eae-seed-test-foo-bar-ns-4026531840");
+    assert_eq!(
+        get_lockfile_path(&logger, &mf),
+        vec![
+            PathBuf::from("/mnt/xarfuse/uid-0/lockfile.8f583eae-seed-test-foo-bar-ns-4026531840"),
+            PathBuf::from("/mnt/xarfuse/uid-0/lockfile.8f583eae"),
+        ],
+    );
+
+    // Confirm a random path doesn't parse
+    let mf = make_mf("/dev/null");
+    assert!(get_lockfile_path(&logger, &mf).len() == 0);
+}
+
+fn get_lockfile_path(logger: &slog::Logger, mount: &MountedFilesystem) -> Vec<PathBuf> {
     // Strip off the dir the mountpoint is inside (only from a list of
     // valid prefixes).  If the mount isn't prefixed by our list, do
     // not unmount.
@@ -251,26 +337,63 @@ fn should_unmount(
                 logger,
                 "Skipping unmount of {}, incorrect prefix", mount.mountpoint
             );
-            return Ok(ShouldUnmountResult::new(false, None));
+            return vec![];
         }
     };
     debug!(logger, "Mount suffix: {}", mount_suffix);
 
-    // Mounts are of the form /prefix/uid-N/UUID-ns-NSID/... -- we
-    // need to extract the UUID portion.
+    // Mounts are of the form /prefix/uid-N/UUID-ns-NSID/... or
+    // /prefix/uid-N/UUID-seed-SEED-ns-NSID/... -- we need to extract
+    // the UUID portion.
     lazy_static! {
-        static ref UUID_REGEX: Regex = Regex::new(r"^uid-\d+/([^/]+)-ns-([^-/]+)$").unwrap();
+        static ref UUID_REGEX: Regex =
+            Regex::new(r"^uid-\d+/([^/-]+)(?:-seed-(?:[^/]+))?-ns-([^-/]+)$").unwrap();
     }
-    let m = match UUID_REGEX.captures(&mount_suffix) {
-        Some(suffix) => suffix,
-        None => {
-            info!(
-                logger,
-                "Skipping unmount of {}, unexpected path strucure", mount_suffix
-            );
-            return Ok(ShouldUnmountResult::new(false, None));
-        }
+
+    // Validate our filename looks like a mountpoint we care about,
+    // and extract the UUID for the legacy lockfile.
+    let captures = match UUID_REGEX.captures(&mount_suffix) {
+        Some(captures) => captures,
+        None => return vec![],
     };
+    let uuid = captures.get(1).unwrap();
+
+    // Look for the lockfile for the mountpoint; there are two cases,
+    // one of just a lockfile.UUID (old style) and one of
+    // lockfile.MOUNT_DIR (new style, which includes the UUID, seed,
+    // and namespace).
+    let mut lockfile_base = mount.chroot.clone();
+    lockfile_base.push(&mount.mountpoint[1..]); // strip leading slash
+    lockfile_base.set_file_name("lockfile");
+
+    let mut old_lockfile = lockfile_base.clone();
+    old_lockfile.set_extension(uuid.as_str());
+
+    let mut new_lockfile = lockfile_base.clone();
+    new_lockfile.set_extension(PathBuf::from(mount_suffix).file_name().unwrap());
+
+    vec![new_lockfile, old_lockfile]
+}
+
+/// Check whether a mount point should be unmounted.  We only consider
+/// squashfuse mounts in the correct locations.  Returns a
+/// ShouldUnmountResult.
+fn should_unmount(
+    logger: &slog::Logger,
+    mount: &MountedFilesystem,
+    timeout: u32,
+) -> Result<ShouldUnmountResult> {
+    // Only consider certain mount types.
+    match mount.fstype.as_str() {
+        "fuse.squashfuse" | "fuse.squashfuse_ll" | "osxfusefs" | "osxfuse" => {}
+        _ => return Ok(ShouldUnmountResult::new(false, None)),
+    }
+    info!(
+        logger,
+        "Considering {} ({})", mount.mountpoint, mount.fstype
+    );
+
+    let lockfiles = get_lockfile_path(&logger, &mount);
 
     // Sometimes mtab gets out of sync with reality; all XARs should
     // contain files, so let's confirm they actually do, and if not,
@@ -292,51 +415,29 @@ fn should_unmount(
         );
     }
 
-    // Look for the lockfile for the mountpoint; there are two cases,
-    // one of just a lockfile.UUID and one of just lockfile.
-    let mut legacy_lockfile = mount.chroot.clone();
-    legacy_lockfile.push(&mount.mountpoint[1..]); // strip leading slash
-    legacy_lockfile.set_file_name("lockfile");
-    let mut current_lockfile = legacy_lockfile.clone();
-
-    // Take up to the first dash in the match group; seeds can have
-    // dashes but our lockfile is based on the first component (the
-    // uuid of the XAR).
-    current_lockfile.set_extension(
-        m.get(1)
-            .ok_or("regex failure")?
-            .as_str()
-            .split("-")
-            .nth(0)
-            .unwrap(),
-    );
+    debug!(logger, "lockfile candidates: {:?}", lockfiles);
 
     // Find the lockfile; use its mtime to determine if the mount
     // point is old enough to try to reap.
-    let lock_opt = [current_lockfile, legacy_lockfile]
+    let lock_opt = lockfiles
         .iter()
-        .map(|candidate| {
-            (
-                candidate,
-                nix::fcntl::open(
-                    candidate.as_path().as_os_str(),
-                    nix::fcntl::OFlag::O_RDWR | nix::fcntl::OFlag::O_CLOEXEC,
-                    nix::sys::stat::Mode::from_bits(0700).unwrap(),
-                ),
+        .map(|ref filename| {
+            nix::fcntl::open(
+                filename.as_path().as_os_str(),
+                nix::fcntl::OFlag::O_RDWR | nix::fcntl::OFlag::O_CLOEXEC,
+                nix::sys::stat::Mode::from_bits(0700).unwrap(),
             )
         })
-        .filter(|&(_, fd_opt)| fd_opt.is_ok())
-        .inspect(|&(candidate, _)| debug!(logger, "Using stat target {:?}", candidate))
-        .map(|(_, fd)| fd.unwrap())
+        .filter_map(|open_result| open_result.ok())
         .next();
     let lock_fd = match lock_opt {
         Some(fd) => fd,
         None => {
             debug!(
                 logger,
-                "Unable to open lock for {:?}, assuming unmount", chrooted_mountpoint
+                "Unable to find lock file for {}, skipping...", mount.mountpoint
             );
-            return Ok(ShouldUnmountResult::new(true, lock_opt));
+            return Ok(ShouldUnmountResult::new(true, None));
         }
     };
 
@@ -364,6 +465,13 @@ fn should_unmount(
     }
 
     Ok(ShouldUnmountResult::new(true, lock_opt))
+}
+
+fn setup_logger(level: slog::Level) -> slog::Logger {
+    let drain = slog_term::PlainSyncDecorator::new(std::io::stdout());
+    let drain = slog_term::FullFormat::new(drain).build();
+    let drain = slog::LevelFilter::new(drain, level).fuse();
+    slog::Logger::root(drain, o![])
 }
 
 // This is our main function.
@@ -395,10 +503,7 @@ fn run() -> Result<()> {
         slog::Level::Info
     };
 
-    let drain = slog_term::PlainSyncDecorator::new(std::io::stdout());
-    let drain = slog_term::FullFormat::new(drain).build();
-    let drain = slog::LevelFilter::new(drain, level).fuse();
-    let root_log = slog::Logger::root(drain, o![]);
+    let root_log = setup_logger(level);
 
     let orig_ns_fd = nix::fcntl::open(
         "/proc/self/ns/mnt",
