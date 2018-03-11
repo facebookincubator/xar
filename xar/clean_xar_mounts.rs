@@ -21,6 +21,7 @@ use std::io::{BufRead, BufReader};
 use std::os::linux::fs::MetadataExt;
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
+use std::process::Command;
 use std::str::FromStr;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -240,8 +241,7 @@ impl NamespaceSaver {
             nix::fcntl::OFlag::O_RDONLY,
             nix::sys::stat::Mode::from_bits(0700).unwrap(),
         )?;
-        nix::sched::setns(temp_ns_fd, nix::sched::CloneFlags::CLONE_NEWNS)
-            .expect("unable to enter namespace");
+        nix::sched::setns(temp_ns_fd, nix::sched::CloneFlags::CLONE_NEWNS)?;
         nix::unistd::close(temp_ns_fd).expect("close should not fail");
 
         Ok(NamespaceSaver {
@@ -532,7 +532,7 @@ fn run() -> Result<()> {
             continue;
         }
         let _ns_saver = NamespaceSaver::new(orig_ns_fd, &nsinfo.namespace_path);
-        if _ns_saver.is_err() {
+        if _ns_saver.is_err() && nix::unistd::geteuid().is_root() {
             info!(
                 root_log,
                 "Unable to enter namespace {:?}, skipping", nsinfo.namespace_path
@@ -554,8 +554,20 @@ fn run() -> Result<()> {
                     "unmounting {:?}:{:?}", nsinfo.namespace_path, target
                 );
                 if !dryrun {
-                    if let Err(e) = nix::mount::umount(&target) {
-                        info!(root_log, "Failed to unmount {:?}: {}", target, e);
+                    if nix::unistd::geteuid().is_root() {
+                        if let Err(e) = nix::mount::umount(&target) {
+                            info!(root_log, "Failed to unmount {:?}: {}", target, e);
+                        }
+                    } else {
+                        let output = Command::new("fusermount").arg("-u").arg(&target).output()?;
+                        if !output.status.success() {
+                            info!(
+                                root_log,
+                                "fusermount -u failed to unmount {:?}: {}",
+                                target,
+                                String::from_utf8_lossy(&output.stderr).trim()
+                            );
+                        }
                     }
                 }
             }
