@@ -1,5 +1,9 @@
-# xar-related crontabs; we put the crontab here to keep it in sync
-# with our mount_xar command line.
+# xar-related crontabs; copy this file to /etc/cron.d.
+
 MAIL=
 RANDOM_DELAY=60
+
+# Periodically clean up XAR mounts on Linux; auto-unmounting takes
+# care of most, but if you find you are seeing stale mounts, consider
+# enabling this cronjob.
 0 3 * * * root /bin/clean_xar_mounts
