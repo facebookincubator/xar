@@ -44,7 +44,7 @@ def main(args):
     p.add_argument("--xar_exec",
                    help="path to xarexec, which must be present to run the "
                    "XAR file",
-                   default="/bin/xarexec")
+                   default="'/usr/bin/env xarexec_fuse'")
     p.add_argument("--inner_executable",
                    help="executable invoked once the XAR is mounted")
     group = p.add_mutually_exclusive_group(required=True)

@@ -53,7 +53,7 @@ def xar_python_binary(
             strict=False,  # Remove (https://fburl.com/strict-custom-rules)
             output_gen_files=[output_name],
             build_args=" ".join([
-                "--xar_exec /bin/xarexec_fuse ",
+                "--xar_exec '/usr/bin/env xarexec_fuse' ",
                 "--inner_executable=xar_bootstrap.sh ",
                 "--parfile=$(location %s) " % (src_rule_name,),
                 "--output=%s" % (output_name,),
@@ -113,7 +113,7 @@ def xar_lua_binary(
             strict=False,  # Remove (https://fburl.com/strict-custom-rules)
             output_gen_files=[output_name],
             build_args=" ".join([
-                "--xar_exec /bin/xarexec_fuse ",
+                "--xar_exec '/usr/bin/env xarexec_fuse' ",
                 "--inner_executable=xar_bootstrap.sh ",
                 "--larfile=$(location %s) " % (src_rule_name,),
                 "--lua_executable=%s " % (executable,),
@@ -143,7 +143,7 @@ def xar_js_binary(
         out=output_name,
         srcs=srcs + [':generate_bootstrap'],
         cmd="$(exe //tools/xar:make_xar) " + " ".join([
-            "--xar_exec /bin/xarexec_fuse",
+            "--xar_exec '/usr/bin/env xarexec_fuse'",
             "--inner_executable=jsxar_bootstrap.sh",
             "--directory=$SRCDIR",
             "--output=$OUT",
@@ -190,7 +190,7 @@ def xar_nodejs_binary(
             ]),
             " ".join([
                 "$(exe //tools/xar:make_xar)",
-                "--xar_exec /bin/xarexec_fuse",
+                "--xar_exec '/usr/bin/env xarexec_fuse'",
                 "--inner_executable=jsxar_bootstrap.sh",
                 "--directory=$SRCDIR",
                 "--output=$OUT",
