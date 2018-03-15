@@ -451,20 +451,16 @@ int main(int argc, char** argv) {
   // /mnt/xarfuse/uid-N/lockfile.UUID-ns-Y.
   auto lockfile = user_basedir + "/lockfile." + mount_directory;
   int lock_fd = grab_lock(lockfile);
-  if (mkdir(mount_path.c_str(), 0755) != 0) {
-    if (errno != EEXIST) {
-      cerr << "mkdir failed"
-           << ": " << strerror(errno) << endl;
-      abort();
+  if (mkdir(mount_path.c_str(), 0755) == 0) {
+    // On macOS, mkdir sets the new directory's group to the enclosing directory
+    // which is not necessarily owned by the euid executing the xar. Instead,
+    // chown() the new directory to the euid and egid.
+    if (kIsDarwin) {
+      PCHECK_SIMPLE(chown(mount_path.c_str(), geteuid(), getegid()) == 0);
     }
-  }
-
-  // On macOS, mkdir sets the new directory's group to the enclosing directory,
-  // which is not necessarily owned by the euid executing the xar. Instead,
-  // chown() the new directory to the euid and egid.
-  if (kIsDarwin) {
-    auto ret = chown(mount_path.c_str(), geteuid(), getegid());
-    PCHECK_SIMPLE(ret == 0);
+  } else if (errno != EEXIST) {
+    cerr << "mkdir failed:" << strerror(errno) << endl;
+    abort();
   }
 
   // TODO(chip): also mount DEPENDENCIES
