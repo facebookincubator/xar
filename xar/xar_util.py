@@ -187,6 +187,35 @@ def partition_files(source_dir,
                 sys.stderr.write("Unable to read %s, skipping\n" % src)
 
 
+def write_sort_file(staging_dir, extension_priorities, sort_file):
+    """
+    Write a sort file for mksquashfs to colocate some files at the beginning.
+    Files are assigned priority by extension, with files earlier in the list
+    appearing first. The result is written to the file object sort_file.
+    mksquashfs takes the sort file with the option '-sort sort_filename'.
+    """
+    for dirpath, _dirname, filenames in os.walk(staging_dir):
+        for filename in filenames:
+            fn = os.path.join(dirpath, filename)
+            for idx, suffix in enumerate(extension_priorities):
+                if fn.endswith(suffix):
+                    # Default priority is 0; make ours all
+                    # negative so we can not list files with
+                    # spaces in the name, making them default
+                    # to 0
+                    priority = idx - len(extension_priorities) - 1
+                    break
+
+            assert fn.startswith(staging_dir + '/')
+            fn = fn[len(staging_dir) + 1:]
+
+            # Older versions of mksquashfs don't like spaces
+            # in filenames; let them have the default priority
+            # of 0.
+            if ' ' not in fn:
+                sort_file.write("%s %d\n" % (fn, priority))
+
+
 def extract_pyc_timestamp(path):
     "Extract the embedded timestamp from a pyc file"
 

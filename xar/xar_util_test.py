@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import io
 import os
 import subprocess
 import tempfile
@@ -169,6 +170,33 @@ class XarUtilTest(unittest.TestCase):
                  out.name], stdout=devnull)
 
         self.assertDirectoryEquals(srcdir, outdir)
+
+    def test_write_sort_file(self):
+        """Tests write_sort_file()"""
+        source_dir = self.make_test_skeleton()
+        # Add in a file with spaces
+        with open(os.path.join(source_dir, "space file.txt"), "w") as fh:
+            fh.write("space file")
+
+        sort_file = io.StringIO()
+        priorities = [
+            ".txt",
+            ".debuginfo",
+            ".mp3",
+        ]
+        xar_util.write_sort_file(source_dir, priorities, sort_file)
+        sort_data = [
+            line.split(" ")
+            for line in sort_file.getvalue().strip().split("\n")
+        ]
+        for filename, priority in sort_data:
+            self.assertFalse(" " in filename)
+            if filename.endswith(".txt"):
+                self.assertEqual(priority, "-4")
+            if filename.endswith(".debuginfo"):
+                self.assertEqual(priority, "-3")
+            if filename.endswith(".mp3"):
+                self.assertEqual(priority, "-2")
 
     def assertDirectoryEquals(self, src, dst):
         """Verify two directories contain the same entries, recursively.  Does
