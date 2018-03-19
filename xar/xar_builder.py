@@ -8,6 +8,7 @@ import shutil
 import tempfile
 import time
 
+from xar import bootstrap_py
 from xar import xar_util
 
 
@@ -72,6 +73,15 @@ class XarBuilder(object):
         """
         self._ensure_unfrozen()
         self._staging.copytree(directory, xar_directory)
+
+    def add_zipfile(self, zf, dst=None):
+        """
+        Adds a zipfile to the XAR under the :xar_directory:. If :xar_directory:
+        is None, then the root of the xar is set to the directory. Throws if the
+        directory already exists.
+        """
+        self._ensure_unfrozen()
+        self._staging.extract(zf, dst)
 
     def _set_shebang(self, shebang):
         """Sets the shebang."""
@@ -236,3 +246,73 @@ class XarBuilder(object):
             os.chmod(filename, 0o755)
 
         self.delete()
+
+
+class PythonXarBuilder(XarBuilder):
+    class InvalidEntryPointError(XarBuilder.Error): pass
+    class InvalidInterpreterError(XarBuilder.Error): pass
+
+    def __init__(self, *args, **kwargs):
+        self._entry_point = None
+        self._interpreter = None
+
+        super(PythonXarBuilder, self).__init__(*args, **kwargs)
+
+    def set_entry_point(self, entry_point):
+        self._ensure_unfrozen()
+        self._validate_entry_point(entry_point)
+        if self._entry_point is not None:
+            raise self.InvalidEntryPointError("Entry point is already set")
+        self._entry_point = entry_point
+
+    def set_interpreter(self, interpreter):
+        """Sets the python interpreter to :python:."""
+        self._ensure_unfrozen()
+        if self._interpreter is not None:
+            raise self.InvalidInterpreterError("Interpreter is already set")
+        self._interpreter = interpreter
+
+    def _validate_entry_point(self, entry_point):
+        def ensure_exists(module):
+            basename = os.sep.join(module.split('.'))
+            for ext in xar_util.PYTHON_EXTS:
+                if self._staging.exists(basename + ext):
+                    return
+            raise self.InvalidEntryPointError("Module '%s' not found in XAR"
+                                              % module)
+
+        module, function = xar_util.parse_entry_point(entry_point)
+        ensure_exists(module)
+
+        parent_end = module.rfind(".")
+        while parent_end > 0:
+            parent_module = module[:parent_end]
+            ensure_exists(parent_module + ".__init__")
+            parent_end = parent_module.rfind(".")
+
+    def _bootstrap(self):
+        """Set up the Python bootstrapping."""
+        if self._interpreter is None:
+            raise self.InvalidInterpreterError("Interpreter is not set.")
+        if self._entry_point is None:
+            raise self.InvalidEntryPointError("Entry point is not set")
+        module, function = xar_util.parse_entry_point(self._entry_point)
+        fmt_args = {
+            "python": self._interpreter,
+            "module": module,
+            "run_xar_main": bootstrap_py.RUN_XAR_MAIN,
+        }
+        if function is not None:
+            fmt_args["function"] = function
+        bootstrap_xar = bootstrap_py.BOOTSTRAP_XAR_TEMPLATE.format(**fmt_args)
+        run_xar_main = bootstrap_py.run_xar_main(**fmt_args)
+
+        self._staging.write(bootstrap_xar, bootstrap_py.BOOTSTRAP_XAR,
+                            mode="w", permissions=0o755)
+        self._staging.write(run_xar_main, bootstrap_py.RUN_XAR_MAIN,
+                            mode="w", permissions=0o644)
+        self.set_executable(bootstrap_py.BOOTSTRAP_XAR)
+
+    def freeze(self):
+        self._bootstrap()
+        super(PythonXarBuilder, self).freeze()

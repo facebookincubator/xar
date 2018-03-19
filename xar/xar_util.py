@@ -15,8 +15,12 @@ import time
 import struct
 import sys
 import uuid
+import zipfile
 
 logger = logging.getLogger('xar')
+
+
+PYTHON_EXTS = [".py", ".pyc"]
 
 
 def make_uuid():
@@ -373,3 +377,54 @@ def extract_pyc_timestamp(path):
     with open(path, "rb") as fh:
         prefix = fh.read(8)
         return struct.unpack(b'<I', prefix[4:])[0]
+
+
+def parse_entry_point(entry_point):
+    """
+    Parses a Python entry point and returns the module and function.
+    The two allowed formats are 'path.to.module', and 'path.to.module:function'.
+    In the former case, ('path.to.module', None) is returned.
+    In the latter case, ('path.to.module', 'function') is returned.
+    """
+    module, sep, function = entry_point.partition(':')
+    if function and sep and module:
+        return (module, function)
+    else:
+        return (module, None)
+
+
+def file_in_zip(zf, filename):
+    """Returns True if :filename: is present in the zipfile :zf:."""
+    try:
+        zf.getinfo(filename)
+        return True
+    except KeyError:
+        return False
+
+
+def extract_python_archive_info(archive):
+    """
+    Extracts the shebang (if any) from a python archive, along with the entry
+    point (if any). Returns a tuple (python_interpreter, entry_point).
+    Avoids interpreting the shebang in it doesn't contain 'python'.
+    """
+    python = None
+    with open(archive, "rb") as f:
+        if f.read(2) == b"#!":
+            shebang = f.readline().decode("utf-8").strip()
+            if "python" in shebang:
+                python = shebang
+    with zipfile.ZipFile(archive) as zf:
+        MAIN = "__main__"
+        main_exists = any(file_in_zip(zf, MAIN + ext) for ext in PYTHON_EXTS)
+        if main_exists:
+            return (python, MAIN)
+        return (python, None)
+
+
+def get_python_main(directory):
+    """Returns the python __main__ from a directory (if it exists)."""
+    main_exists = any(os.path.exists("__main__" + ext) for ext in PYTHON_EXTS)
+    if main_exists:
+        return "__main__"
+    return None
