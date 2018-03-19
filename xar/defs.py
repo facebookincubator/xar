@@ -44,7 +44,7 @@ def xar_python_binary(
     if build_is_inplace('python'):
         buck_genrule(
             name=name,
-            cmd='$(location //tools/xar:make_dummy_xar_in_dev_mode.sh) $OUT',
+            cmd='$(location //tools/xar/facebook:make_dummy_xar_in_dev_mode.sh) $OUT',
             out=output_name,
         )
     else:
@@ -54,14 +54,13 @@ def xar_python_binary(
             output_gen_files=[output_name],
             build_args=" ".join([
                 "--xar_exec '/usr/bin/env xarexec_fuse' ",
-                "--inner_executable=xar_bootstrap.sh ",
                 "--parfile=$(location %s) " % (src_rule_name,),
                 "--output=%s" % (output_name,),
             ] + extra_make_xar_args),
-            build_script_dep="//tools/xar:make_xar",
+            build_script_dep="//tools/xar/facebook:make_xar",
             deployable=True,
-            deps=deps + ["//tools/xar:xar_bootstrap.sh.tmpl",
-                         "//tools/xar:__run_xar_main__.py"],
+            deps=deps + ["//tools/xar/facebook:xar_bootstrap.sh.tmpl",
+                         "//tools/xar/facebook:__run_xar_main__.py"],
         )
 
 
@@ -104,7 +103,7 @@ def xar_lua_binary(
     if build_is_inplace('lua'):
         buck_genrule(
             name=name,
-            cmd='$(location //tools/xar:make_dummy_xar_in_dev_mode.sh) $OUT',
+            cmd='$(location //tools/xar/facebook:make_dummy_xar_in_dev_mode.sh) $OUT',
             out=output_name,
         )
     else:
@@ -114,12 +113,12 @@ def xar_lua_binary(
             output_gen_files=[output_name],
             build_args=" ".join([
                 "--xar_exec '/usr/bin/env xarexec_fuse' ",
-                "--inner_executable=xar_bootstrap.sh ",
+                "--xar_exec /bin/xarexec_fuse ",
                 "--larfile=$(location %s) " % (src_rule_name,),
                 "--lua_executable=%s " % (executable,),
                 "--output=%s" % (output_name,),
             ] + extra_make_xar_args),
-            build_script_dep="//tools/xar:make_xar",
+            build_script_dep="//tools/xar/facebook:make_xar",
             deployable=True,
             deps=deps,
         )
@@ -132,7 +131,7 @@ def xar_js_binary(
         output_name=None,):
     buck_genrule(
         name='generate_bootstrap',
-        cmd='$(location //tools/xar:make_jsxar_bootstrap.sh) ' +
+        cmd='$(location //tools/xar/facebook:make_jsxar_bootstrap.sh) ' +
             index + ' $OUT',
         out='jsxar_bootstrap.sh',
     )
@@ -142,7 +141,7 @@ def xar_js_binary(
         name=name,
         out=output_name,
         srcs=srcs + [':generate_bootstrap'],
-        cmd="$(exe //tools/xar:make_xar) " + " ".join([
+        cmd="$(exe //tools/xar/facebook:make_xar) " + " ".join([
             "--xar_exec '/usr/bin/env xarexec_fuse'",
             "--inner_executable=jsxar_bootstrap.sh",
             "--directory=$SRCDIR",
@@ -165,7 +164,7 @@ def xar_nodejs_binary(
         name='%s__run' % (name,),
         cmd=" ".join([
             'NODE="$(location %s)";' % (node_bin,),
-            '$(location //tools/xar:make_nodejsxar_bootstrap.sh)',
+            '$(location //tools/xar/facebook:make_nodejsxar_bootstrap.sh)',
             '"${NODE##*/}"',
             main,
             '$OUT',
@@ -189,7 +188,7 @@ def xar_nodejs_binary(
                 "$SRCDIR/asar",
             ]),
             " ".join([
-                "$(exe //tools/xar:make_xar)",
+                "$(exe //tools/xar/facebook:make_xar)",
                 "--xar_exec '/usr/bin/env xarexec_fuse'",
                 "--inner_executable=jsxar_bootstrap.sh",
                 "--directory=$SRCDIR",

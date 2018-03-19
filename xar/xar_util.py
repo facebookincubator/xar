@@ -4,19 +4,17 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import collections
+import errno
 import logging
 import os
-import re
 import shutil
-import struct
+import stat
 import subprocess
 import tempfile
 import time
-import stat
+import struct
 import sys
 import uuid
-
-from xar.lar_util import lar_boot_commands
 
 logger = logging.getLogger('xar')
 
@@ -33,6 +31,13 @@ def _align_offset(offset, align=4096):
     return (offset + mask) & (~mask)
 
 
+class SquashfsOptions(object):
+    def __init__(self):
+        self.compression_algorithm = "zstd"
+        self.zstd_level = 16
+        self.block_size = 256 * 1024
+
+
 class XarFactory(object):
     """A class for creating XAR files.
 
@@ -44,12 +49,10 @@ class XarFactory(object):
         self.output = output
         self.header_prefix = header_prefix
         self.xar_header = {}
-        self.compression_algorithm = 'zstd'
-        self.block_size = 256 * 1024
-        self.zstd_level = 16
         self.uuid = None
         self.version = None
         self.sort_file = None
+        self.squashfs_options = SquashfsOptions()
 
     def go(self):
         "Make the XAR file."
@@ -62,14 +65,15 @@ class XarFactory(object):
 
         tf = tempfile.NamedTemporaryFile(delete=False)
         # Create!
-        cmd = ["/usr/sbin/mksquashfs", self.dirname, tf.name, "-noappend",
+        sqopts = self.squashfs_options
+        cmd = ["mksquashfs", self.dirname, tf.name, "-noappend",
                '-noI', '-noX',  # is this worth it?  probably
                '-force-uid', 'nobody',
                '-force-gid', 'nobody',
-               '-b', str(self.block_size),
-               "-comp", self.compression_algorithm]
-        if self.compression_algorithm == 'zstd':
-            cmd.extend(('-Xcompression-level', str(self.zstd_level)))
+               '-b', str(sqopts.block_size),
+               "-comp", sqopts.compression_algorithm]
+        if sqopts.compression_algorithm == 'zstd':
+            cmd.extend(('-Xcompression-level', str(sqopts.zstd_level)))
 
         if self.sort_file:
             cmd.extend(['-sort', self.sort_file])
@@ -112,17 +116,172 @@ class XarFactory(object):
                     of.write(data)
 
 
+def safe_mkdir(directory):
+    try:
+        os.makedirs(directory)
+    except OSError as exc:
+        if exc.errno != errno.EEXIST:
+            raise
+
+
+def safe_remove(filename):
+    try:
+        os.unlink(filename)
+    except OSError as e:
+        if e.errno != errno.ENOENT:
+            raise
+
+
+def safe_rmtree(directory):
+    if os.path.exists(directory):
+        shutil.rmtree(directory, True)
+
+
+# Simplified version of Chroot from PEX
+class StagingDirectory(object):
+    """
+    Manages the staging directory.
+    """
+    class Error(Exception):
+        pass
+
+    def __init__(self, staging_dir=None):
+        self._staging = staging_dir or tempfile.mkdtemp()
+        safe_mkdir(self._staging)
+
+    def _normalize(self, dst):
+        dst = os.path.normpath(dst)
+        if dst.startswith(os.sep) or dst.startswith('..'):
+            raise self.Error("Destination path '%s' is not a relative!" % dst)
+        return dst
+
+    def _ensure_parent(self, dst):
+        safe_mkdir(os.path.dirname(self.absolute(dst)))
+
+    def _ensure_not_dst(self, dst):
+        if self.exists(dst):
+            raise self.Error("Destination path '%s' already exists!" % dst)
+
+    def clone(self, staging_dir=None):
+        """Clone the staging directory"""
+        dst = StagingDirectory(staging_dir or tempfile.mkdtemp())
+        dst.copytree(self._staging)
+        return dst
+
+    def path(self):
+        """Returns the root directory of the staging directory."""
+        return self._staging
+
+    def absolute(self, dst):
+        """Returns absolute path for a path relative to staging directory."""
+        dst = self._normalize(dst)
+        return os.path.join(self._staging, dst)
+
+    def delete(self):
+        """Delete the staging directory."""
+        safe_rmtree(self._staging)
+
+    def copy(self, src, dst):
+        """Copy src into dst under the staging directory."""
+        dst = self._normalize(dst)
+        self._ensure_parent(dst)
+        self._ensure_not_dst(dst)
+        shutil.copy2(src, self.absolute(dst))
+
+    def write(self, data, dst, mode, permissions):
+        """Write data into dst."""
+        dst = self._normalize(dst)
+        self._ensure_parent(dst)
+        self._ensure_not_dst(dst)
+        with open(self.absolute(dst), mode) as f:
+            f.write(data)
+        os.chmod(self.absolute(dst), permissions)
+
+    def _resolve_dst_dir(self, dst):
+        if dst is None:
+            # Replace the current staging directory
+            if os.listdir(self._staging) != []:
+                raise self.Error("Staging directory is not empty!")
+            # shutil requires that the destination directory does not exist
+            safe_rmtree(self._staging)
+            dst = '.'
+        dst = self._normalize(dst)
+        self._ensure_not_dst(dst)
+        return dst
+
+    def copytree(self, src, dst=None):
+        """Copy src dir into dst under the staging directory."""
+        dst = self._resolve_dst_dir(dst)
+        shutil.copytree(src, self.absolute(dst))
+
+    def symlink(self, link, dst):
+        """Write symbolic link to dst under the staging directory."""
+        dst = self._normalize(dst)
+        self._ensure_parent(dst)
+        self._ensure_not_dst(dst)
+        os.symlink(link, self.absolute(dst))
+
+    def move(self, src, dst):
+        """Move src into dst under the staging directory."""
+        dst = self._normalize(dst)
+        self._ensure_parent(dst)
+        self._ensure_not_dst(dst)
+        shutil.move(src, self.absolute(dst))
+
+    def exists(self, dst):
+        """Checks if dst exists under the staging directory."""
+        dst = self._normalize(dst)
+        return os.path.exists(self.absolute(dst))
+
+    def extract(self, zf, dst=None):
+        """Extracts the zipfile into dst under the staging directory."""
+        dst = self._resolve_dst_dir(dst)
+        abs_dst = os.path.join(self._staging, dst)
+        timestamps = {}
+        for zi in zf.infolist():
+            filename = os.path.join(dst, zi.filename)
+            destination = self.absolute(filename)
+
+            mode = zi.external_attr >> 16
+            if stat.S_ISLNK(mode):
+                target = zf.read(zi).decode("utf-8")
+                self.symlink(target, filename)
+            else:
+                self._ensure_parent(filename)
+                zf.extract(zi, path=abs_dst)
+                os.chmod(destination, stat.S_IMODE(mode))
+
+            # Use the embedded timestamp for from the pyc file for the
+            # pyc and py file; otherwise, use the timezone-less
+            # timestamp from the zipfile (sigh).
+            if filename.endswith(".pyc"):
+                new_time = extract_pyc_timestamp(destination)
+                timestamps[destination] = new_time       # pyc file
+                timestamps[destination[:-1]] = new_time  # py file too
+            else:
+                new_time = tuple((list(zi.date_time) + [0, 0, -1]))
+                timestamps[destination] = time.mktime(new_time)
+
+        # Set our timestamps.
+        for path, timestamp in timestamps.items():
+            try:
+                os.utime(path, (timestamp, timestamp))
+            except OSError as e:
+                # Sometimes we had a pyc file but no py file; the utime
+                # would fail.
+                if not path.endswith(".py"):
+                    raise e
+
+
 # Simple class to represent a partition destination.  Each destination
 # is a path and a uuid from which the contents come (ie, the uuid of
 # the spar file that contains the file that is moved into the
 # partition; used for symlink construction).
 PartitionDestination = collections.namedtuple(
-    'PartitionDestination', 'path uuid')
+    'PartitionDestination', 'staging uuid')
 
 
-def partition_files(source_dir,
-                    dest_dir,
-                    extension_destinations):
+def partition_files(staging, extension_destinations):
     """Partition source_dir into multiple output directories.
 
     A partition is defined by extension_destinations which maps suffixes (such
@@ -133,9 +292,10 @@ def partition_files(source_dir,
     "../../../uuid/path/to/file" so that the final symlinks are correct
     relative to /mnt/xar/....
     """
+    source_dir = staging.path()
     source_dir = source_dir.rstrip('/')
 
-    for dirpath, _dirnames, filenames in os.walk(source_dir):
+    for dirpath, _dirnames, filenames in os.walk(staging.path()):
         # path relative to source_dir; used for creating the right
         # file inside the staging dir
         relative_dirname = dirpath[len(source_dir) + 1:]
@@ -153,38 +313,24 @@ def partition_files(source_dir,
             # Does this extension map to a separate output?
             _, extension = os.path.splitext(filename)
             dest_base = extension_destinations.get(extension, None)
-            if dest_base is not None:
-                output_dir = os.path.join(dest_base.path, relative_dirname)
-            else:
-                output_dir = os.path.join(dest_dir, relative_dirname)
-            dest_dir_dest = os.path.join(dest_dir, relative_dirname, filename)
-            output_path = os.path.join(output_dir, filename)
-            if not os.path.isdir(output_dir):
-                os.makedirs(output_dir, 0o755)
-
-            src = os.path.join(source_dir, dirpath, filename)
-            # If this file is destined for another tree, make a
-            # relative symlink in dest_dir_dest pointing to the
+            # This path stays in the source staging directory
+            if dest_base is None:
+                continue
+            # This file is destined for another tree, make a
+            # relative symlink in source pointing to the
             # sub-xar destination.
-            if extension in extension_destinations:
-                dependency_mountpoint = dest_base.uuid
-                staging_symlink = os.path.join(
-                    '../' * relative_depth,
-                    dependency_mountpoint,
-                    relative_dirname,
-                    filename)
-                logger.info("%s %s" % (staging_symlink, dest_dir_dest))
-                if not os.path.isdir(os.path.dirname(dest_dir_dest)):
-                    os.makedirs(os.path.dirname(dest_dir_dest), 0o755)
-                if os.path.exists(dest_dir_dest):
-                    os.unlink(dest_dir_dest)
-                os.symlink(staging_symlink, dest_dir_dest)
+            relative_path = os.path.join(relative_dirname, filename)
+            source_path = staging.absolute(relative_path)
+            dest_base.staging.move(source_path, relative_path)
 
-            # Now copy the file to whichever destination it is heading to.
-            if os.access(src, os.R_OK):
-                shutil.copy2(src, output_path)
-            else:
-                sys.stderr.write("Unable to read %s, skipping\n" % src)
+            dependency_mountpoint = dest_base.uuid
+            staging_symlink = os.path.join(
+                '../' * relative_depth,
+                dependency_mountpoint,
+                relative_path)
+            logging.info("%s %s" % (staging_symlink, source_path))
+
+            staging.symlink(staging_symlink, relative_path)
 
 
 def write_sort_file(staging_dir, extension_priorities, sort_file):
@@ -227,90 +373,3 @@ def extract_pyc_timestamp(path):
     with open(path, "rb") as fh:
         prefix = fh.read(8)
         return struct.unpack(b'<I', prefix[4:])[0]
-
-
-def extract_par_file(zf, output_dir):
-    "Extract a par file (aka a zip file), fixing pyc timestamps as needed."
-
-    timestamps = {}
-    for zi in zf.infolist():
-        destination = os.path.join(output_dir, zi.filename)
-
-        mode = zi.external_attr >> 16
-        if stat.S_ISLNK(mode):
-            target = zf.read(zi).decode("utf-8")
-            os.symlink(target, destination)
-        else:
-            zf.extract(zi, path=output_dir)
-            os.chmod(destination, stat.S_IMODE(mode))
-
-        # Use the embedded timestamp for from the pyc file for the
-        # pyc and py file; otherwise, use the timezone-less
-        # timestamp from the zipfile (sigh).
-        if zi.filename.endswith(".pyc"):
-            new_time = extract_pyc_timestamp(destination)
-            timestamps[destination] = new_time       # pyc file
-            timestamps[destination[:-1]] = new_time  # py file too
-        else:
-            new_time = tuple((list(zi.date_time) + [0, 0, -1]))
-            timestamps[destination] = time.mktime(new_time)
-
-    # Set our timestamps.
-    for path, timestamp in timestamps.items():
-        try:
-            os.utime(path, (timestamp, timestamp))
-        except OSError as e:
-            # Sometimes we had a pyc file but no py file; the utime
-            # would fail.
-            if not path.endswith(".py"):
-                raise e
-
-
-def extract_manifest_info(zf_path, zf):
-    """
-    Extract information we need from the par file's manifest; in particular,
-    we need python_home, main_module, and python_command
-    """
-
-    # Simple version: the manifest contains an fbmake entry with the
-    # fields we need.  Use them.
-    manifest = zf.read("__manifest__.py")
-    contents = {}
-    exec(manifest, contents)
-
-    try:
-        # fbmake manifests
-        info = contents['fbmake']
-    except KeyError:
-        # buck manifests
-        info = contents['Manifest'].fbmake
-        if 'ld_preload' not in info:
-            # FIXME: Hack until Buck's manifest includes ld_preload info.
-            with open(zf_path, "rb") as fh:
-                header = fh.read(16384)
-            r = re.compile(br'^# LD_PRELOAD=(.+)$')
-            m = r.match(header)
-            info['ld_preload'] = m.group(1) if m else ''
-
-    return info
-
-
-def lua_bootstrap(interpreter):
-    """
-    Bootstrap shell script to launch Lua interpreter
-    """
-
-    bootstrap = ["""#!/bin/bash
-set -e
-
-BOOTSTRAP_PATH="$0"
-BASE_DIR=$(dirname "$BOOTSTRAP_PATH")
-shift
-"""]
-
-    bootstrap += lar_boot_commands(
-        has_python=True,
-        interpreter=interpreter,
-    )
-
-    return "\n".join(bootstrap)

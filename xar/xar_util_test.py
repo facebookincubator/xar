@@ -5,13 +5,13 @@ from __future__ import unicode_literals
 
 import io
 import os
-import subprocess
 import tempfile
 import unittest
 
-from xar import xar_util
+from xar import xar_builder, xar_test_helpers, xar_util
 
-class XarUtilTest(unittest.TestCase):
+
+class XarUtilTest(xar_test_helpers.XarTestCase):
     def test_xar_factory(self):
         "Test XarFactory and XarReader"
 
@@ -19,68 +19,39 @@ class XarUtilTest(unittest.TestCase):
         srcdir = self.make_test_skeleton()
 
         tf = tempfile.NamedTemporaryFile(delete=False)
-        xar = xar_util.XarFactory(srcdir, tf.name, "#!boring shebang")
-        xar.compression_algorithm = 'lzo'
-        xar.block_size = 4096
+        xar = xar_util.XarFactory(srcdir, tf.name, xar_builder.BORING_SHEBANG)
+        xar.squashfs_options.compression_algorithm = 'lzo'
+        xar.squashfs_options.block_size = 4096
         xar.go()
 
-        # Make sure the header is what we expect; also grab the offset.
-        with open(tf.name, "rb") as fh:
-            first_line = fh.readline()
-            self.assertEquals(first_line, b"#!boring shebang\n")
-            saw_stop = False
-            offset = None
-            for line in fh:
-                if line == b"#xar_stop\n":
-                    saw_stop = True
-                    break
-                if line.startswith(b"OFFSET="):
-                    offset = int(line[8:-2])
-            self.assertTrue(saw_stop)
-            self.assertEquals(offset, 4096)
-
-            fh.seek(offset)
-            squashfs_contents = fh.read()
-
-        # Write the squashfs file out, expand it, and make sure it
-        # contains the same files as the source.
         outdir = os.path.join(tempfile.mkdtemp(), 'squashfs-root')
-        with tempfile.NamedTemporaryFile() as out, \
-             open("/dev/null", "wb") as devnull:
-            out.write(squashfs_contents)
-            out.flush()
-            subprocess.check_call(
-                ["/usr/sbin/unsquashfs",
-                 '-d', outdir,
-                 '-no-xattrs',
-                 out.name], stdout=devnull)
-
-        self.assertDirectoryEquals(srcdir, outdir)
+        self._unxar(tf.name, outdir)
+        self.assertDirectoryEqual(srcdir, outdir)
 
     def test_partition_files(self):
         "Test the file partitioning functionality used for split XARs."
-        srcdir = self.make_test_skeleton()
-        dstdir = tempfile.mkdtemp()
-        debuginfo_dir = tempfile.mkdtemp()
-        mp3_dir = tempfile.mkdtemp()
+        srcdir = xar_util.StagingDirectory(self.make_test_skeleton())
+        dstdir = srcdir.clone()
+        debuginfo_dir = xar_util.StagingDirectory()
+        mp3_dir = xar_util.StagingDirectory()
 
         # Set up and execute the partitioning.
-        print("Partitioning %s to %s (normal) and %s (debuginfo)" %
-              (srcdir, dstdir, debuginfo_dir))
+        print("Partitioning %s (normal) to %s (debuginfo) and %s (mp3)" %
+              (dstdir.path(), debuginfo_dir.path(), mp3_dir.path()))
 
         uuid = xar_util.make_uuid()
         extension_map = {
             ".debuginfo": xar_util.PartitionDestination(debuginfo_dir, uuid),
             ".mp3": xar_util.PartitionDestination(mp3_dir, uuid),
         }
-        xar_util.partition_files(srcdir, dstdir, extension_map)
+        xar_util.partition_files(dstdir, extension_map)
 
         # Every debuginfo file in dstdir should be a symlink; every
         # .txt file should be a real file.  We should find the same
         # number of txt files as debuginfo symlinks.
         num_normal_files = 0
         num_symlinks = 0
-        for dirname, _, filenames in os.walk(dstdir):
+        for dirname, _, filenames in os.walk(dstdir.path()):
             for filename in filenames:
                 fn = os.path.join(dirname, filename)
                 if fn.endswith((".debuginfo", ".mp3")):
@@ -100,7 +71,7 @@ class XarUtilTest(unittest.TestCase):
         self.assertEquals(2 * num_normal_files, num_symlinks)
 
         # Make sure only normal files are in the debuginfo dir.
-        for dirname, _, filenames in os.walk(debuginfo_dir):
+        for dirname, _, filenames in os.walk(debuginfo_dir.path()):
             for filename in filenames:
                 fn = os.path.join(dirname, filename)
                 if fn.endswith(".debuginfo"):
@@ -109,7 +80,7 @@ class XarUtilTest(unittest.TestCase):
                     self.fail("found non-debuginfo file in debug partition")
 
         # Same, but for mp3.
-        for dirname, _, filenames in os.walk(mp3_dir):
+        for dirname, _, filenames in os.walk(mp3_dir.path()):
             for filename in filenames:
                 fn = os.path.join(dirname, filename)
                 if fn.endswith(".mp3"):
@@ -117,7 +88,13 @@ class XarUtilTest(unittest.TestCase):
                 else:
                     self.fail("found non-mp3 file in mp3 partition")
 
-        self.assertDirectoryEquals(srcdir, dstdir)
+        self.assertDirectoryEqual(srcdir.path(), dstdir.path(),
+                                  check_contents=False)
+
+        srcdir.delete()
+        dstdir.delete()
+        debuginfo_dir.delete()
+        mp3_dir.delete()
 
     def test_align_offset(self):
         self.assertEquals(0, xar_util._align_offset(0))
@@ -132,44 +109,15 @@ class XarUtilTest(unittest.TestCase):
         srcdir = self.make_test_skeleton()
 
         tf = tempfile.NamedTemporaryFile(delete=False)
-        xar = xar_util.XarFactory(srcdir, tf.name, "#!boring shebang")
-        xar.compression_algorithm = 'lzo'
-        xar.block_size = 4096
+        xar = xar_util.XarFactory(srcdir, tf.name, xar_builder.BORING_SHEBANG)
+        xar.squashfs_options.compression_algorithm = 'lzo'
+        xar.squashfs_options.block_size = 4096
         xar.xar_header["IGNORED"] = "0" * 5000
         xar.go()
 
-        # Make sure the header is what we expect; also grab the offset.
-        with open(tf.name, "rb") as fh:
-            first_line = fh.readline()
-            self.assertEquals(first_line, b"#!boring shebang\n")
-            saw_stop = False
-            offset = None
-            for line in fh:
-                if line == b"#xar_stop\n":
-                    saw_stop = True
-                    break
-                if line.startswith(b"OFFSET="):
-                    offset = int(line[8:-2])
-            self.assertTrue(saw_stop)
-            self.assertEquals(offset, 8192)
-
-            fh.seek(offset)
-            squashfs_contents = fh.read()
-
-        # Write the squashfs file out, expand it, and make sure it
-        # contains the same files as the source.
         outdir = os.path.join(tempfile.mkdtemp(), 'squashfs-root')
-        with tempfile.NamedTemporaryFile() as out, \
-             open("/dev/null", "wb") as devnull:
-            out.write(squashfs_contents)
-            out.flush()
-            subprocess.check_call(
-                ["/usr/sbin/unsquashfs",
-                 '-d', outdir,
-                 '-no-xattrs',
-                 out.name], stdout=devnull)
-
-        self.assertDirectoryEquals(srcdir, outdir)
+        self._unxar(tf.name, outdir)
+        self.assertDirectoryEqual(srcdir, outdir)
 
     def test_write_sort_file(self):
         """Tests write_sort_file()"""
@@ -197,21 +145,6 @@ class XarUtilTest(unittest.TestCase):
                 self.assertEqual(priority, "-3")
             if filename.endswith(".mp3"):
                 self.assertEqual(priority, "-2")
-
-    def assertDirectoryEquals(self, src, dst):
-        """Verify two directories contain the same entries, recursively.  Does
-        not verify file contents, merely filenames."""
-        def directory_contents(d):
-            ret = []
-            for dirname, dirs, files in os.walk(d):
-                for entry in dirs + files:
-                    full_path = os.path.join(dirname, entry)
-                    ret.append(full_path[len(d) + 1:])
-            return sorted(ret)
-
-        src_contents = directory_contents(src)
-        dst_contents = directory_contents(dst)
-        self.assertEquals(src_contents, dst_contents)
 
     def make_test_skeleton(self):
         "Make a simple tree of test files"
