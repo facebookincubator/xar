@@ -68,7 +68,7 @@ const char* kMountRoot = "MOUNT_ROOT";
 // Default timeout to pass to squashfuse_ll.  14.5 minutes;
 // clean_xar_mounts uses 15 minutes
 const size_t kSquashFuseDefaultTimeout = 870;
-const char* kSquashFuseExecutable = "/usr/bin/squashfuse_ll";
+const char* kSquashFuseExecutable = "squashfuse_ll";
 const char* kSquashFuseTimeoutKillswitch =
   "/var/lib/xarexec_timeout_killswitch";
 
@@ -482,7 +482,7 @@ int main(int argc, char** argv) {
         opts += ",allow_root";
       }
       PCHECK_SIMPLE(
-          execl(
+          execlp(
               kSquashFuseExecutable,
               kSquashFuseExecutable,
               opts.c_str(),
