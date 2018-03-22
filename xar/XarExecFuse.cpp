@@ -558,23 +558,27 @@ int main(int argc, char** argv) {
   }
 
   // cmd line is:
-  // newArgs[0] = mounted path inside squash file to run
-  // newArgs[1] = path to the squash file itself
-  // newArgs[2], newArgs[3], ... = args passed on our command line
+  // newArgs[0] = "/bin/sh"
+  // newArgs[1] = "-eu"
+  // newArgs[2] = mounted path inside squash file to run
+  // newArgs[3] = path to the squash file itself
+  // newArgs[4], newArgs[4], ... = args passed on our command line
 
-  // Why argc + 3?  The 2 new params and the trailing nullptr entry.
-  char* newArgs[argc + 3];
-  newArgs[0] = strdup(exec_path.c_str());
-  if (newArgs[0] == nullptr) {
+  // Why argc + 5?  The 4 new params and the trailing nullptr entry.
+  char* newArgs[argc + 5];
+  newArgs[0] = strdup("/bin/sh");
+  newArgs[1] = strdup("-eu");
+  newArgs[2] = strdup(exec_path.c_str());
+  if (!newArgs[0] || !newArgs[1] || !newArgs[2]) {
     cerr << "strdup failed, call the cops"
          << ": " << strerror(errno) << endl;
     abort();
   }
-  newArgs[1] = xar_path;
+  newArgs[3] = xar_path;
   for (int i = 0; i < argc; ++i) {
-    newArgs[i + 2] = argv[i];
+    newArgs[i + 4] = argv[i];
   }
-  newArgs[argc + 2] = nullptr;
+  newArgs[argc + 4] = nullptr;
   for (int i = 0; newArgs[i]; ++i) {
     if (debugging) {
       cerr << "  exec arg: " << newArgs[i] << endl;
