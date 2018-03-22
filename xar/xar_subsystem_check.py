@@ -38,7 +38,6 @@ xar_mountpoint = Path(os.environ['FB_PAR_RUNTIME_FILES'])
 for file in (
     'xar_bootstrap.sh',
     f'libtools_xar_{binary_name}-cxx-build-info-lib.so',
-    'libcommon_memory_jemalloc.so',
 ):
     assert os.access(xar_mountpoint / file, os.R_OK), f"{file} isn't accessible"
 
@@ -47,7 +46,6 @@ if sys.platform == 'linux':
         maps = maps_file.read()
     for file in (
         f'libtools_xar_{binary_name}-cxx-build-info-lib.so',
-        'libcommon_memory_jemalloc.so',
     ):
         assert str(xar_mountpoint / file) in maps, f"{file} not preloaded"
 
