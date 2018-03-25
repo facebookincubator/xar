@@ -12,7 +12,7 @@ from pathlib import Path
 # code properly, which indicates the XAR is properly mounted, etc.
 # For now, this is only for Linux; macs don't support native code.
 if sys.platform == 'linux':
-    from libfb import pyinit
+    from libfb.py import pyinit
 
     parser = pyinit.FbcodeArgumentParser()
     opts = parser.parse_args(sys.argv[1:])
