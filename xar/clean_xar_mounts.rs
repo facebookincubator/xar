@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate error_chain;
+extern crate failure;
 #[macro_use]
 extern crate lazy_static;
 extern crate nix;
@@ -26,6 +25,8 @@ use std::str::FromStr;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+type Result<T> = ::std::result::Result<T, failure::Error>;
+
 // jemalloc can be configured with a static string.  We have to
 // null-terminate it, but this works fine from Rust.
 //
@@ -35,18 +36,6 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 #[allow(non_upper_case_globals)]
 #[no_mangle]
 pub static malloc_conf: &str = "background_thread:false\0";
-
-/// Pile of errors that get lumped into our Error type.
-error_chain! {
-    foreign_links {
-        NixError(nix::Error);
-        RegexError(regex::Error);
-        SystemTimeError(std::time::SystemTimeError);
-        ClapError(clap::Error);
-        IoError(std::io::Error);
-        ParseIntError(std::num::ParseIntError);
-    }
-}
 
 /// flock a file descriptor of the given type within timeout_sec.
 /// Return True if successful.
@@ -580,12 +569,11 @@ fn run() -> Result<()> {
 fn main() {
     std::env::set_var("RUST_BACKTRACE", "1");
     if let Err(ref e) = run() {
-        use error_chain::ChainedError;
         use std::io::Write; // trait which holds `display`
         let stderr = &mut ::std::io::stderr();
         let errmsg = "Error writing to stderr";
 
-        writeln!(stderr, "{}", e.display_chain()).expect(errmsg);
+        writeln!(stderr, "{}, {}", e.cause(), e.backtrace()).expect(errmsg);
         ::std::process::exit(1);
     }
 }
