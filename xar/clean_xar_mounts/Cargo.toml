@@ -1,0 +1,14 @@
+[package]
+name = "clean_xar_mounts"
+version = "0.1.0"
+authors = ["chip <chip@fb.com>"]
+
+[dependencies]
+clap = "2.31"
+failure = "0.1.*"
+lazy_static = "1.0.*"
+nix = "0.10.*"
+regex = "0.2.*"
+slog = "2.1.*"
+slog-term = "2.3.*"
+tempfile = "2.2.*"
