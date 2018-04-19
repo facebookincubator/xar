@@ -5,10 +5,12 @@ from __future__ import unicode_literals
 
 import os
 import shutil
+import sys
 import tempfile
 import time
 
 from xar import bootstrap_py
+from xar import py_util
 from xar import xar_util
 
 
@@ -22,14 +24,21 @@ class XarBuilder(object):
     Files and directories can be added to the XAR until it is frozen, then it
     cannot be modified, and can only be built with XarBuilder.build().
     """
-    class Error(Exception): pass
-    class InvalidExecutableError(Error): pass
-    class FrozenError(Error): pass
-    class InvalidShebangError(Error): pass
+    class Error(Exception):
+        pass
 
-    def __init__(self, xar_exec=None, mount_root=None, staging_dir=None):
+    class InvalidExecutableError(Error):
+        pass
+
+    class FrozenError(Error):
+        pass
+
+    class InvalidShebangError(Error):
+        pass
+
+    def __init__(self, xar_exec=None, mount_root=None):
         """Constructs a XarBuilder."""
-        self._staging = xar_util.StagingDirectory(staging_dir)
+        self._staging = xar_util.StagingDirectory()
         self._frozen = False
 
         self._mount_root = mount_root
@@ -42,6 +51,7 @@ class XarBuilder(object):
         self._priorities = None
         self._partition = None
 
+        self._version = None
         self._sort_file = None
         self._partition_dest = {}
 
@@ -134,9 +144,9 @@ class XarBuilder(object):
         self._sort_file = None
         if self._priorities is None:
             return
-        with tempfile.NamedTemporaryFile(mode="w+t", delete=False) as f:
+        self._sort_file = xar_util.TemporaryFile()
+        with self._sort_file.open(mode="w+t") as f:
             xar_util.write_sort_file(self._staging.path(), self._priorities, f)
-            self._sort_file = f.name
 
     def partition_by_extension(self, partition, override=False):
         """
@@ -179,7 +189,7 @@ class XarBuilder(object):
         """Delete temporary resources."""
         self._staging.delete()
         if self._sort_file is not None:
-            xar_util.safe_remove(self._sort_file)
+            self._sort_file.delete()
         for dest in self._partition_dest.values():
             dest.staging.delete()
 
@@ -193,7 +203,8 @@ class XarBuilder(object):
             xar.xar_header = xar_header.copy()
         xar.version = self._version
         xar.version = self._version
-        xar.sort_file = self._sort_file
+        if self._sort_file:
+            xar.sort_file = self._sort_file.name()
         xar.squashfs_options = squashfs_options
         xar.go()
 
@@ -249,14 +260,44 @@ class XarBuilder(object):
 
 
 class PythonXarBuilder(XarBuilder):
-    class InvalidEntryPointError(XarBuilder.Error): pass
-    class InvalidInterpreterError(XarBuilder.Error): pass
+    class InvalidEntryPointError(XarBuilder.Error):
+        pass
+
+    class InvalidInterpreterError(XarBuilder.Error):
+        pass
+
+    class InvalidDistributionError(XarBuilder.Error):
+        pass
+
+    LIBRARY_PATH = ""
 
     def __init__(self, *args, **kwargs):
         self._entry_point = None
         self._interpreter = None
+        self._distributions = set()
 
         super(PythonXarBuilder, self).__init__(*args, **kwargs)
+
+    def _validate_entry_point(self, entry_point):
+        """Validates that the module specified in :entry_point: exists."""
+        def ensure_exists(module):
+            basename = os.path.join(self.LIBRARY_PATH, *module.split('.'))
+            if os.path.isdir(self._staging.absolute(basename)):
+                basename = basename + "/__init__"
+            for ext in py_util.PYTHON_EXTS:
+                if self._staging.exists(basename + ext):
+                    return
+            raise self.InvalidEntryPointError(
+                "Module '%s' not found in XAR" % module
+            )
+
+        module, function = py_util.parse_entry_point(entry_point)
+
+        parent_end = len(module)
+        while parent_end > 0:
+            parent_module = module[:parent_end]
+            ensure_exists(parent_module)
+            parent_end = parent_module.rfind(".")
 
     def set_entry_point(self, entry_point):
         self._ensure_unfrozen()
@@ -270,25 +311,49 @@ class PythonXarBuilder(XarBuilder):
         self._ensure_unfrozen()
         if self._interpreter is not None:
             raise self.InvalidInterpreterError("Interpreter is already set")
+        if not py_util.is_python_version(interpreter, sys.version_info):
+            raise self.InvalidInterpreterError(
+                "%s is not compatible with the running Python version." %
+                interpreter
+            )
         self._interpreter = interpreter
 
-    def _validate_entry_point(self, entry_point):
-        def ensure_exists(module):
-            basename = os.sep.join(module.split('.'))
-            for ext in xar_util.PYTHON_EXTS:
-                if self._staging.exists(basename + ext):
-                    return
-            raise self.InvalidEntryPointError("Module '%s' not found in XAR"
-                                              % module)
+    def _xar_install_paths(self, dist_name, absolute):
+        """Return the XAR wheel install locations."""
+        prefix = ""
+        if absolute:
+            prefix = self._staging.absolute() + os.sep
+        return {
+            'purelib': '%s%s' % (prefix, self.LIBRARY_PATH),
+            'platlib': '%s%s' % (prefix, self.LIBRARY_PATH),
+            'headers': '%sinclude/%s' % (prefix, dist_name),
+            'scripts': '%sbin' % prefix,
+            'data': prefix,
+        }
 
-        module, function = xar_util.parse_entry_point(entry_point)
-        ensure_exists(module)
+    def add_distribution(self, distribution):
+        """
+        Add a pkg_resources.Distribution to the XAR.
+        Handles all the installation, and adding the distribution to the Python
+        path.
+        """
+        self._ensure_unfrozen()
+        # We only support wheels.
+        if not distribution.has_metadata(py_util.Wheel.WHEEL_INFO):
+            raise self.InvalidDistributionError("'%s' is not a wheel!" %
+                                                distribution.location)
+        wheel = py_util.Wheel(distribution=distribution)
+        sys_paths = wheel.sys_install_paths()
+        xar_paths = self._xar_install_paths(wheel.name, absolute=True)
+        wheel.install(sys_paths, xar_paths, force=False)
+        self._distributions.add(wheel.distinfo_location(xar_paths))
 
-        parent_end = module.rfind(".")
-        while parent_end > 0:
-            parent_module = module[:parent_end]
-            ensure_exists(parent_module + ".__init__")
-            parent_end = parent_module.rfind(".")
+    def _fixup_distributions(self):
+        """Fixup the distributions."""
+        for distinfo_location in self._distributions:
+            wheel = py_util.Wheel(location=distinfo_location)
+            xar_paths = self._xar_install_paths(wheel.name, absolute=True)
+            wheel.fixup(xar_paths)
 
     def _bootstrap(self):
         """Set up the Python bootstrapping."""
@@ -296,7 +361,8 @@ class PythonXarBuilder(XarBuilder):
             raise self.InvalidInterpreterError("Interpreter is not set.")
         if self._entry_point is None:
             raise self.InvalidEntryPointError("Entry point is not set")
-        module, function = xar_util.parse_entry_point(self._entry_point)
+
+        module, function = py_util.parse_entry_point(self._entry_point)
         fmt_args = {
             "python": self._interpreter,
             "module": module,
@@ -314,5 +380,6 @@ class PythonXarBuilder(XarBuilder):
         self.set_executable(bootstrap_py.BOOTSTRAP_XAR)
 
     def freeze(self):
+        self._fixup_distributions()
         self._bootstrap()
         super(PythonXarBuilder, self).freeze()

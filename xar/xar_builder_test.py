@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import copy
 import os
 
 from xar import xar_builder, xar_test_helpers, xar_util
@@ -125,7 +126,7 @@ class XarBuilderTest(xar_test_helpers.XarTestCase):
             self.xar_builder.sort_by_extension(None, override=True)
         # Check the result
         self.assertTrue(self.xar_builder._sort_file is not None)
-        with open(self.xar_builder._sort_file, "r") as f:
+        with self.xar_builder._sort_file.open("r") as f:
             sort_data = f.read().strip()
         sort_data = [l.split(" ") for l in sort_data.split("\n")]
         for filename, priority in sort_data:
@@ -190,3 +191,18 @@ class XarBuilderTest(xar_test_helpers.XarTestCase):
         self._unxar(test_xar, test_root)
         self.assertDirectoryEqual(self.src.path(), test_root)
         dst.delete()
+
+    def test_deepcopy(self):
+        other = copy.deepcopy(self.xar_builder)
+        self.assertEqual(other._sort_file, None)
+        self.assertEqual(other._frozen, self.xar_builder._frozen)
+        self.assertEqual(other._xar_exec, self.xar_builder._xar_exec)
+        other.delete()
+
+        self.xar_builder._sort_file = xar_util.TemporaryFile()
+        other = copy.deepcopy(self.xar_builder)
+        self.assertNotEqual(other._staging.absolute(),
+                            self.xar_builder._staging.absolute())
+        self.assertNotEqual(other._sort_file.name(),
+                            self.xar_builder._sort_file.name())
+        other.delete()

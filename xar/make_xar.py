@@ -30,8 +30,7 @@ import os
 import sys
 import zipfile
 
-from xar import xar_builder
-from xar import xar_util
+from xar import py_util, xar_builder, xar_util
 
 
 class XarArgumentError(Exception):
@@ -96,7 +95,7 @@ def main():
             entry_point = entry_point or xar_util.get_python_main(opts.python)
         else:
             z_interpreter, z_entry_point = \
-                xar_util.extract_python_archive_info(opts.python)
+                py_util.extract_python_archive_info(opts.python)
             with zipfile.ZipFile(opts.python) as zf:
                 interpreter = interpreter or z_interpreter
                 entry_point = entry_point or z_entry_point

@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import copy
 import io
 import os
 import tempfile
@@ -31,7 +32,7 @@ class XarUtilTest(xar_test_helpers.XarTestCase):
     def test_partition_files(self):
         "Test the file partitioning functionality used for split XARs."
         srcdir = xar_util.StagingDirectory(self.make_test_skeleton())
-        dstdir = srcdir.clone()
+        dstdir = copy.deepcopy(srcdir)
         debuginfo_dir = xar_util.StagingDirectory()
         mp3_dir = xar_util.StagingDirectory()
 
@@ -145,6 +146,22 @@ class XarUtilTest(xar_test_helpers.XarTestCase):
                 self.assertEqual(priority, "-3")
             if filename.endswith(".mp3"):
                 self.assertEqual(priority, "-2")
+
+    def test_staging_deepcopy(self):
+        original = xar_util.StagingDirectory(self.make_test_skeleton())
+        clone = copy.deepcopy(original)
+        self.assertNotEqual(original.absolute(), clone.absolute())
+        self.assertDirectoryEqual(original.absolute(), clone.absolute())
+
+    def test_temporary_file_deepcopy(self):
+        original = xar_util.TemporaryFile()
+        data = "the data"
+        with original.open("w+t") as f:
+            f.write(data)
+        clone = copy.deepcopy(original)
+        self.assertNotEqual(original.name(), clone.name())
+        with clone.open("r+t") as f:
+            self.assertEqual(data, f.read())
 
     def make_test_skeleton(self):
         "Make a simple tree of test files"

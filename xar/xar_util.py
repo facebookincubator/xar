@@ -9,18 +9,14 @@ import logging
 import os
 import shutil
 import stat
+import struct
 import subprocess
 import tempfile
 import time
-import struct
 import sys
 import uuid
-import zipfile
 
 logger = logging.getLogger('xar')
-
-
-PYTHON_EXTS = [".py", ".pyc"]
 
 
 def make_uuid():
@@ -150,8 +146,14 @@ class StagingDirectory(object):
         pass
 
     def __init__(self, staging_dir=None):
-        self._staging = staging_dir or tempfile.mkdtemp()
+        self._staging = os.path.normpath(staging_dir or tempfile.mkdtemp())
         safe_mkdir(self._staging)
+
+    def __deepcopy__(self, memo):
+        other = StagingDirectory()
+        memo[id(self)] = other
+        other.copytree(self._staging)
+        return other
 
     def _normalize(self, dst):
         dst = os.path.normpath(dst)
@@ -166,20 +168,16 @@ class StagingDirectory(object):
         if self.exists(dst):
             raise self.Error("Destination path '%s' already exists!" % dst)
 
-    def clone(self, staging_dir=None):
-        """Clone the staging directory"""
-        dst = StagingDirectory(staging_dir or tempfile.mkdtemp())
-        dst.copytree(self._staging)
-        return dst
-
     def path(self):
         """Returns the root directory of the staging directory."""
         return self._staging
 
-    def absolute(self, dst):
+    def absolute(self, dst=None):
         """Returns absolute path for a path relative to staging directory."""
+        if dst is None:
+            return self._staging
         dst = self._normalize(dst)
-        return os.path.join(self._staging, dst)
+        return os.path.normpath(os.path.join(self._staging, dst))
 
     def delete(self):
         """Delete the staging directory."""
@@ -275,6 +273,29 @@ class StagingDirectory(object):
                 # would fail.
                 if not path.endswith(".py"):
                     raise e
+
+
+class TemporaryFile(object):
+    """Wrapper around a temporary file that supports deepcopy()."""
+    def __init__(self):
+        with tempfile.NamedTemporaryFile(mode="w+", delete=False) as f:
+            self._filename = f.name
+
+    def open(self, mode=None):
+        return open(self._filename, mode)
+
+    def name(self):
+        return self._filename
+
+    def delete(self):
+        safe_remove(self._filename)
+
+    def __deepcopy__(self, memo):
+        other = TemporaryFile()
+        memo[id(self)] = other
+        with self.open("rb") as src, other.open("wb") as dst:
+            shutil.copyfileobj(src, dst)
+        return other
 
 
 # Simple class to represent a partition destination.  Each destination
@@ -379,20 +400,6 @@ def extract_pyc_timestamp(path):
         return struct.unpack(b'<I', prefix[4:])[0]
 
 
-def parse_entry_point(entry_point):
-    """
-    Parses a Python entry point and returns the module and function.
-    The two allowed formats are 'path.to.module', and 'path.to.module:function'.
-    In the former case, ('path.to.module', None) is returned.
-    In the latter case, ('path.to.module', 'function') is returned.
-    """
-    module, sep, function = entry_point.partition(':')
-    if function and sep and module:
-        return (module, function)
-    else:
-        return (module, None)
-
-
 def file_in_zip(zf, filename):
     """Returns True if :filename: is present in the zipfile :zf:."""
     try:
@@ -402,29 +409,14 @@ def file_in_zip(zf, filename):
         return False
 
 
-def extract_python_archive_info(archive):
+def yield_prefixes_reverse(path):
     """
-    Extracts the shebang (if any) from a python archive, along with the entry
-    point (if any). Returns a tuple (python_interpreter, entry_point).
-    Avoids interpreting the shebang in it doesn't contain 'python'.
+    Yields all prefixes of :path: in reverse.
+    list(yield_prefixes_reverse("/a/b")) == ["/a/b", "/a", "/"]
+    list(yield_prefixes_reverse("a/b")) == ["a/b", "a", ""]
     """
-    python = None
-    with open(archive, "rb") as f:
-        if f.read(2) == b"#!":
-            shebang = f.readline().decode("utf-8").strip()
-            if "python" in shebang:
-                python = shebang
-    with zipfile.ZipFile(archive) as zf:
-        MAIN = "__main__"
-        main_exists = any(file_in_zip(zf, MAIN + ext) for ext in PYTHON_EXTS)
-        if main_exists:
-            return (python, MAIN)
-        return (python, None)
-
-
-def get_python_main(directory):
-    """Returns the python __main__ from a directory (if it exists)."""
-    main_exists = any(os.path.exists("__main__" + ext) for ext in PYTHON_EXTS)
-    if main_exists:
-        return "__main__"
-    return None
+    old = None
+    while path != old:
+        yield path
+        old = path
+        path, _ = os.path.split(path)

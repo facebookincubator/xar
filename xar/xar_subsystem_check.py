@@ -1,7 +1,12 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 A trivial XAR used to confirm XARs execute correctly on a host.
 """
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import sys
 import os
@@ -32,21 +37,23 @@ for env in (
     # 'LD_LIBRARY_PATH',
     # 'LD_PRELOAD',
 ):
-    assert env in os.environ, f'{env} not in environment'
+    assert env in os.environ, '%s not in environment' % env
 
 xar_mountpoint = Path(os.environ['FB_PAR_RUNTIME_FILES'])
 for file in (
     'xar_bootstrap.sh',
-    f'libtools_xar_{binary_name}-cxx-build-info-lib.so',
+    'libtools_xar_%s-cxx-build-info-lib.so' % binary_name,
 ):
-    assert os.access(xar_mountpoint / file, os.R_OK), f"{file} isn't accessible"
+    assert os.access(
+        xar_mountpoint / file, os.R_OK
+    ), "%s isn't accessible" % file
 
 if sys.platform == 'linux':
     with open('/proc/self/maps') as maps_file:
         maps = maps_file.read()
     for file in (
-        f'libtools_xar_{binary_name}-cxx-build-info-lib.so',
+        'libtools_xar_%s-cxx-build-info-lib.so' % binary_name,
     ):
-        assert str(xar_mountpoint / file) in maps, f"{file} not preloaded"
+        assert str(xar_mountpoint / file) in maps, "%s not preloaded" % file
 
 print('ok')
