@@ -70,10 +70,10 @@ const char* kMountRoot = "MOUNT_ROOT";
 const size_t kSquashFuseDefaultTimeout = 870;
 const char* kSquashFuseExecutable = "squashfuse_ll";
 const char* kSquashFuseTimeoutKillswitch =
-  "/var/lib/xarexec_timeout_killswitch";
+    "/var/lib/xarexec_timeout_killswitch";
 
-using std::cout;
 using std::cerr;
+using std::cout;
 using std::endl;
 
 // Set to true for verbose output when testing.
@@ -91,28 +91,23 @@ void check_file_sanity(
   struct stat st;
   PCHECK_SIMPLE(stat(path.c_str(), &st) == 0);
   if (st.st_uid != geteuid()) {
-    cerr << "Invalid owner of " << path << endl;
-    abort();
+    FATAL << "Invalid owner of " << path;
   }
 
   // Verify the directory is owned by one of the groups the user is in.
   if (st.st_gid != getegid() && !tools::xar::is_user_in_group(st.st_gid)) {
-    cerr << "Invalid group of " << path << endl;
-    abort();
+    FATAL << "Invalid group of " << path;
   }
 
   if (expected == Expectation::Directory && !S_ISDIR(st.st_mode)) {
-    cerr << "Should be a directory: " << path << endl;
-    abort();
+    FATAL << "Should be a directory: " << path;
   }
   if (expected == Expectation::File && !S_ISREG(st.st_mode)) {
-    cerr << "Should be a normal file: " << path << endl;
-    abort();
+    FATAL << "Should be a normal file: " << path;
   }
   if ((st.st_mode & 07777) != perms) {
-    cerr << "Invalid permissions on " << path << ", expected " << std::oct
-         << perms << ", got " << (st.st_mode & 07777) << endl;
-    abort();
+    FATAL << "Invalid permissions on " << path << ", expected " << std::oct
+          << perms << ", got " << (st.st_mode & 07777);
   }
 }
 
@@ -137,14 +132,12 @@ std::string get_user_basedir(const std::string& basedir) {
 int grab_lock(const std::string& lockfile) {
   int fd = open(lockfile.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0600);
   if (fd < 0) {
-    cerr << "can't open lockfile: " << strerror(errno) << endl;
-    abort();
+    FATAL << "can't open lockfile: " << strerror(errno);
   }
 
   check_file_sanity(lockfile, Expectation::File, 0600);
   if (flock(fd, LOCK_EX) != 0) {
-    cerr << "can't flock lockfile: " << strerror(errno) << endl;
-    abort();
+    FATAL << "can't flock lockfile: " << strerror(errno);
   }
 
   return fd;
@@ -157,25 +150,21 @@ std::unordered_map<std::string, std::string> read_xar_header(
     const char* filename) {
   int fd = open(filename, O_RDONLY | O_CLOEXEC);
   if (fd < 0) {
-    cerr << "open " << filename << ": " << strerror(errno) << endl;
-    abort();
+    FATAL << "open " << filename << ": " << strerror(errno);
   }
 
   std::string buf;
   buf.resize(kDefaultHeaderSize);
   ssize_t res = read(fd, &buf[0], buf.size());
   if (res < 0) {
-    cerr << "read header from: " << filename << ": " << strerror(errno) << endl;
-    abort();
+    FATAL << "read header from: " << filename << ": " << strerror(errno);
   }
   if (res != buf.size()) {
-    cerr << "Short read of header of " << filename << endl;
-    abort();
+    FATAL << "Short read of header of " << filename;
   }
   res = close(fd);
   if (res < 0) {
-    cerr << "close " << filename << ": " << strerror(errno) << endl;
-    abort();
+    FATAL << "close " << filename << ": " << strerror(errno);
   }
 
   std::unordered_map<std::string, std::string> ret;
@@ -190,16 +179,14 @@ std::unordered_map<std::string, std::string> read_xar_header(
 
     auto name_value = tools::xar::split('=', line);
     if (name_value.size() != 2) {
-      cerr << "malformed header line: " << line << endl;
-      abort();
+      FATAL << "malformed header line: " << line;
     }
     std::string name = name_value[0];
     std::string value = name_value[1];
 
     if (name.empty() || value.size() < 2 || value.front() != '"' ||
         value.back() != '"') {
-      cerr << "invalid line in xar header: " << line << endl;
-      abort();
+      FATAL << "invalid line in xar header: " << line;
     }
     // skip quotes around value
     ret[name] = value.substr(1, value.size() - 2);
@@ -207,13 +194,11 @@ std::unordered_map<std::string, std::string> read_xar_header(
 
   if (ret.find(kOffsetName) == ret.end() ||
       ret[kOffsetName] != std::to_string(kDefaultHeaderSize)) {
-    cerr << "TODO(chip): support headers other than the default" << endl;
-    abort();
+    FATAL << "TODO(chip): support headers other than he default";
   }
 
   if (ret.find(kUuidName) == ret.end()) {
-    cerr << "No UUID in XAR header" << endl;
-    abort();
+    FATAL << "No UUID in XAR header";
   }
 
   if (debugging) {
@@ -234,14 +219,12 @@ bool is_squashfuse_mounted(const std::string& path, bool try_fix) {
     if (errno == ENOTCONN) {
       std::string cmd = tools::xar::UNMOUNT_CMD + path;
       if (system(cmd.c_str()) != 0) {
-        cerr << "unable to umount broken mount; try 'fusermount -u " << path
-             << "' by hand" << endl;
-        abort();
+        FATAL << "unable to umount broken mount; try 'fusermount -u " << path
+              << "' by hand";
       }
       return false;
     }
-    cerr << "stafs failed for " << path << ": " << strerror(errno) << endl;
-    abort();
+    FATAL << "stafs failed for " << path << ": " << strerror(errno);
   }
 
   return tools::xar::is_squashfs_mounted(statfs_buf);
@@ -358,8 +341,7 @@ int main(int argc, char** argv) {
     }
   } catch (const std::exception& ex) {
     cerr << "Header offset is non-integral: " << header[kOffsetName] << endl;
-    cerr << "Exact error: " << ex.what() << endl;
-    abort();
+    FATAL << "Exact error: " << ex.what();
   }
   std::string uuid = header[kUuidName];
   std::string execpath;
@@ -368,16 +350,13 @@ int main(int argc, char** argv) {
     execpath = it->second;
   }
   if (!mount_only && execpath.empty()) {
-    cerr << "No XAREXEC_TARGET in XAR header of " << xar_path << endl;
-    abort();
+    FATAL << "No XAREXEC_TARGET in XAR header of " << xar_path;
   }
   if (!std::all_of(uuid.begin(), uuid.end(), isxdigit)) {
-    cerr << "uuid must only contain hex digits" << endl;
-    abort();
+    FATAL << "uuid must only contain hex digits";
   }
   if (uuid.empty()) {
-    cerr << "uuid must be non-empty" << endl;
-    abort();
+    FATAL << "uuid must be non-empty";
   }
 
   // If provided, use a non-default mount root from the header.
@@ -390,23 +369,20 @@ int main(int argc, char** argv) {
     // defaults.
     for (const auto& candidate : kDefaultMountRoots) {
       struct stat st;
-      if (stat(candidate.c_str(), &st) == 0 &&
-          (st.st_mode & 07777) == 01777) {
+      if (stat(candidate.c_str(), &st) == 0 && (st.st_mode & 07777) == 01777) {
         mountroot = candidate;
         break;
       }
     }
     if (mountroot.empty()) {
-      cerr << "Unable to find suitable 01777 mount root" << endl;
-      abort();
+      FATAL << "Unable to find suitabe 01777 mount root";
     }
   }
 
   struct stat st;
   PCHECK_SIMPLE(stat(mountroot.c_str(), &st) == 0);
   if ((st.st_mode & 07777) != 01777) {
-    cerr << "Should be 01777: " << mountroot << endl;
-    abort();
+    FATAL << "Should be 01777: " << mountroot;
   }
 
   // Path is /mnt/xarfuse/uid-N/UUID-ns-Y; we make directories under
@@ -459,8 +435,7 @@ int main(int argc, char** argv) {
       PCHECK_SIMPLE(chown(mount_path.c_str(), geteuid(), getegid()) == 0);
     }
   } else if (errno != EEXIST) {
-    cerr << "mkdir failed:" << strerror(errno) << endl;
-    abort();
+    FATAL << "mkdir failed:" << strerror(errno);
   }
 
   // TODO(chip): also mount DEPENDENCIES
@@ -495,18 +470,13 @@ int main(int argc, char** argv) {
       // We only make it out of this block if we have an exit status of 0.
       if (WIFEXITED(status)) {
         if (WEXITSTATUS(status) != 0) {
-          cerr << "squashfuse_ll failed with exit status "
-               << WEXITSTATUS(status) << endl;
-          abort();
+          FATAL << "squashfuse_ll failed with exit status "
+                << WEXITSTATUS(status);
         }
       } else if (WIFSIGNALED(status)) {
-          cerr << "squashfuse_ll failed with signal "
-               << WTERMSIG(status) << endl;
-          abort();
+        FATAL << "squashfuse_ll failed with signal " << WTERMSIG(status);
       } else {
-          cerr << "squashfuse_ll failed with unknown exit status "
-               << status << endl;
-          abort();
+        FATAL << "squashfuse_ll failed with unknown exit status " << status;
       }
     }
   }
@@ -516,8 +486,7 @@ int main(int argc, char** argv) {
   auto timeout = std::chrono::seconds(9);
   while (!is_squashfuse_mounted(mount_path, false)) {
     if (std::chrono::steady_clock::now() - start > timeout) {
-      cerr << "timed out waiting for squashfs mount" << endl;
-      abort();
+      FATAL << "timed out waiting for squashfs mount";
     }
     /* sleep override */
     std::this_thread::sleep_for(std::chrono::microseconds(100));
@@ -553,8 +522,7 @@ int main(int argc, char** argv) {
   // unmount can occur.
   int bootstrap_fd = open(exec_path.c_str(), O_RDONLY);
   if (bootstrap_fd == -1) {
-    cerr << "Unable to open " << exec_path << ": " << strerror(errno) << endl;
-    abort();
+    FATAL << "Unable to open " << exec_path << ": " << strerror(errno);
   }
 
   // cmd line is:
@@ -570,9 +538,8 @@ int main(int argc, char** argv) {
   newArgs[1] = strdup("-eu");
   newArgs[2] = strdup(exec_path.c_str());
   if (!newArgs[0] || !newArgs[1] || !newArgs[2]) {
-    cerr << "strdup failed, call the cops"
-         << ": " << strerror(errno) << endl;
-    abort();
+    FATAL << "strdup failed, call the cops"
+          << ": " << strerror(errno);
   }
   newArgs[3] = xar_path;
   for (int i = 0; i < argc; ++i) {
@@ -586,8 +553,7 @@ int main(int argc, char** argv) {
   }
   umask(old_umask);
   if (execv(newArgs[0], newArgs) != 0) {
-    cerr << "execv: " << strerror(errno) << "cmd: " << newArgs[0] << endl;
-    abort();
+    FATAL << "execv: " << strerror(errno) << "cmd: " << newArgs[0];
   }
 
   return 0;

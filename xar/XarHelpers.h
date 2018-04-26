@@ -10,35 +10,57 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
 // Inspired by glog's CHECK/PCHECK, these macros don't rely on glog
 // itself, which we intentionally avoid due to issues using it in a
 // setuid context.
-#define CHECK_SIMPLE(test)               \
-  do {                                   \
-    if (!(test)) {                       \
-      try {                              \
-        std::cerr << #test << std::endl; \
-      } catch (...) {                    \
-      }                                  \
-      abort();                           \
-    }                                    \
+#define CHECK_SIMPLE(test) \
+  do {                     \
+    if (!(test)) {         \
+      try {                \
+        FATAL << #test;    \
+      } catch (...) {      \
+      }                    \
+      abort();             \
+    }                      \
   } while (0)
-#define PCHECK_SIMPLE(test)                                         \
-  do {                                                              \
-    if (!(test)) {                                                  \
-      try {                                                         \
-        std::cerr << #test << ": " << strerror(errno) << std::endl; \
-      } catch (...) {                                               \
-      }                                                             \
-      abort();                                                      \
-    }                                                               \
+#define PCHECK_SIMPLE(test)                        \
+  do {                                             \
+    if (!(test)) {                                 \
+      try {                                        \
+        FATAL << #test << ": " << strerror(errno); \
+      } catch (...) {                              \
+      }                                            \
+      abort();                                     \
+    }                                              \
   } while (0)
+
+// A simple, poor man's version of Google logging.  Use the FATAL
+// macro and not this class directly.
+#define FATAL                                \
+  (::tools::xar::detail::LogFatal().stream() \
+   << "FATAL " << __FILE__ << ":" << __LINE__ << ": ")
 
 namespace tools {
 namespace xar {
+
+namespace detail {
+class LogFatal {
+ public:
+  // The attributes here are to prevent optimizations that may
+  // obfuscate our stack trace.
+  ~LogFatal() __attribute__((__noreturn__, __noinline__));
+  std::ostream& stream() {
+    return ostream;
+  }
+
+ private:
+  std::stringstream ostream;
+};
+} // namespace detail
 
 // The unmount command used for unmounting the squash fs. Differs depending on
 // OS.
@@ -51,7 +73,7 @@ size_t delimSize(char) {
 size_t delimSize(const std::string& s) {
   return s.size();
 }
-}
+} // namespace
 
 // A slow, simple split function.
 template <typename DelimType>
@@ -86,5 +108,5 @@ void close_non_std_fds();
 
 // Check if squashfs is mounted.
 bool is_squashfs_mounted(const struct statfs& buf);
-}
-}
+} // namespace xar
+} // namespace tools
