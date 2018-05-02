@@ -527,7 +527,7 @@ int main(int argc, char** argv) {
 
   // cmd line is:
   // newArgs[0] = "/bin/sh"
-  // newArgs[1] = "-eu"
+  // newArgs[1] = "-e"
   // newArgs[2] = mounted path inside squash file to run
   // newArgs[3] = path to the squash file itself
   // newArgs[4], newArgs[4], ... = args passed on our command line
@@ -535,7 +535,7 @@ int main(int argc, char** argv) {
   // Why argc + 5?  The 4 new params and the trailing nullptr entry.
   char* newArgs[argc + 5];
   newArgs[0] = strdup("/bin/sh");
-  newArgs[1] = strdup("-eu");
+  newArgs[1] = strdup("-e");
   newArgs[2] = strdup(exec_path.c_str());
   if (!newArgs[0] || !newArgs[1] || !newArgs[2]) {
     FATAL << "strdup failed, call the cops"
