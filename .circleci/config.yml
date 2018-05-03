@@ -12,4 +12,5 @@
         - run: cd googletest-release-1.8.0; mkdir build; cd build; cmake -G"Unix Makefiles" ..; make
         - run: cp -r googletest-release-1.8.0/googletest/include/gtest /usr/local/include
         - run: cp googletest-release-1.8.0/build/googlemock/gtest/lib*.a /usr/local/lib
-        - run: cd xar; cmake ..
+        - run: cmake .
+        - run: make; make test
