@@ -12,11 +12,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 option(XAR_BUILD_TESTS "Compile XAR tests" on)
 
 # xar helpers (easier to build as a library)
-set(xarlib_srcs XarHelpers.h)
+set(xarlib_srcs xar/XarHelpers.h xar/XarHelpers.cpp)
 if(APPLE)
-    list(APPEND xarlib_srcs XarMacOS.cpp)
+    list(APPEND xarlib_srcs xar/XarMacOS.cpp)
 elseif(UNIX AND NOT APPLE)  # otherwise known as "Linux"
-    list(APPEND xarlib_srcs XarLinux.cpp)
+    list(APPEND xarlib_srcs xar/XarLinux.cpp)
 else()
     message(FATAL_ERROR "platform is not supported")
 endif()
@@ -29,15 +29,15 @@ target_include_directories(XarHelperLib
 
 # xarexec_fuse binary
 set(xarexec "xarexec_fuse")
-set(${xarexec} XarExecFuse.cpp)
-add_executable(${xarexec} XarExecFuse.cpp)
+set(${xarexec} xar/XarExecFuse.cpp)
+add_executable(${xarexec} xar/XarExecFuse.cpp)
 target_link_libraries(${xarexec} XarHelperLib)
 
 # xarexec tests
 if (XAR_BUILD_TESTS)
     enable_testing()
     find_package(GTest REQUIRED)
-    add_executable(XarTests XarHelpersTest.cpp)
+    add_executable(XarTests xar/XarHelpersTest.cpp)
     target_link_libraries(XarTests
         XarHelperLib
         GTest::GTest
@@ -50,7 +50,7 @@ if (XAR_BUILD_TESTS)
         fuse_conf_without_user_allow_other
     )
     foreach(data ${test_data})
-        configure_file(${data} "tools/xar/${data}" COPYONLY)
+        configure_file("xar/${data}" "tools/xar/${data}" COPYONLY)
     endforeach()
 
     # Finally, set up the test
