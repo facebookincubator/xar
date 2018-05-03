@@ -1,0 +1,15 @@
+  version: 2
+  jobs:
+    build:
+      docker:
+        - image: buildpack-deps:xenial
+      steps:
+        - checkout
+        - run: wget -O cmake.sh https://cmake.org/files/v3.11/cmake-3.11.0-Linux-x86_64.sh
+        - run: sh cmake.sh --prefix=/usr/local --skip-license
+        - run: wget -O gtest.tgz https://github.com/google/googletest/archive/release-1.8.0.tar.gz
+        - run: tar xzf gtest.tgz
+        - run: cd googletest-release-1.8.0; mkdir build; cd build; cmake -G"Unix Makefiles" ..; make
+        - run: cp -r googletest-release-1.8.0/googletest/include/gtest /usr/local/include
+        - run: cp googletest-release-1.8.0/build/googlemock/gtest/lib*.a /usr/local/lib
+        - run: cd xar; cmake ..
