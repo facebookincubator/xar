@@ -7,6 +7,7 @@ import csv
 import logging
 import os
 import py_compile
+import re
 import shlex
 import shutil
 import subprocess
@@ -132,6 +133,15 @@ class Wheel(object):
     WHEEL_INFO = install.WheelFile.WHEEL_INFO
     RECORD = install.WheelFile.RECORD
 
+    # The latest wheel no longer accepts "package-version.dist-info".
+    # Copy the old regex here.
+    # See https://github.com/pypa/wheel/issues/236
+    WHEEL_INFO_RE = re.compile(
+        r"""^(?P<namever>(?P<name>.+?)(-(?P<ver>\d.*?))?)
+        ((-(?P<build>\d.*?))?-(?P<pyver>.+?)-(?P<abi>.+?)-(?P<plat>.+?)
+        \.whl|\.dist-info)$""",
+        re.VERBOSE).match
+
     @classmethod
     def is_wheel_archive(cls, path):
         """Returns True if :path: is a wheel."""
@@ -162,9 +172,9 @@ class Wheel(object):
         # I'm not sure if egg_info is a public interface, but we already rely
         # on it for WheelMetadata.
         basename = os.path.basename(self.distribution.egg_info)
-        parsed_filename = install.WHEEL_INFO_RE(basename)
+        parsed_filename = self.WHEEL_INFO_RE(basename)
         if parsed_filename is None:
-            raise self.Error("Bad location '%s'" % location)
+            raise self.Error("Bad wheel '%s'" % basename)
         self.name = parsed_filename.group('name')
         self.ver = parsed_filename.group('ver')
         self.namever = parsed_filename.group('namever')

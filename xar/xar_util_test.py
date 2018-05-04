@@ -21,7 +21,7 @@ class XarUtilTest(xar_test_helpers.XarTestCase):
 
         tf = tempfile.NamedTemporaryFile(delete=False)
         xar = xar_util.XarFactory(srcdir, tf.name, xar_builder.BORING_SHEBANG)
-        xar.squashfs_options.compression_algorithm = 'lzo'
+        xar.squashfs_options.compression_algorithm = 'zstd'
         xar.squashfs_options.block_size = 4096
         xar.go()
 
@@ -111,7 +111,7 @@ class XarUtilTest(xar_test_helpers.XarTestCase):
 
         tf = tempfile.NamedTemporaryFile(delete=False)
         xar = xar_util.XarFactory(srcdir, tf.name, xar_builder.BORING_SHEBANG)
-        xar.squashfs_options.compression_algorithm = 'lzo'
+        xar.squashfs_options.compression_algorithm = 'zstd'
         xar.squashfs_options.block_size = 4096
         xar.xar_header["IGNORED"] = "0" * 5000
         xar.go()

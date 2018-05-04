@@ -44,7 +44,7 @@ class XarTestCase(unittest.TestCase):
             out.write(squashfs_contents)
             out.flush()
             subprocess.check_call(
-                ["/usr/sbin/unsquashfs",
+                ["unsquashfs",
                  '-d', outdir,
                  '-no-xattrs',
                  out.name], stdout=devnull)
