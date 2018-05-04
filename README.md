@@ -1,19 +1,47 @@
-# __________
-__________ is a ... and solves ...
+# XAR
+XARs are the replacement for PARs, JSARs, LARs, and other executable archive systems. It is used to package up Python modules into a single
+executable file.
 
-## Examples
-...
+A XAR file is a [squashfs](https://en.wikipedia.org/wiki/SquashFS) image.  
+The first four kilobytes, though, are shell script, whose shebang references
+`xarexec_fuse`, who is responsible for mounting the squashfs file into a known
+location and then executing something inside the XAR file
+(the "something" typically is a bootstrap script).
+
+More details are in `OVERVIEW.md`
 
 ## Requirements
-__________ requires or works with
+XAR requires:
 * Mac OS X or Linux
-* ...
+* Python >= **2.7.11** & >= **3.5**
 
-## Building __________
-...
+## Building XAR
+XAR has multiple components.
 
-## Installing __________
-...
+### C++ Fuse Modules
+This code requires `squashfuse` installed.
+
+```
+mkdir build && cmake .. && make && [sudo] make install
+```
+
+### bdist_xar
+The setuptools plugin is available on PyPI. This module will require `squashfs-tools`
+
+```
+pip install xar
+```
+
+*or*
+
+```
+python setup.py install
+```
+
+
+
+## Installing XAR
+
 
 ## Running the Circle CI tests locally
 
@@ -27,18 +55,8 @@ If you change `.circleci/config.yml` you should validate it before committing
 
     circleci config validate
 
-## How __________ works
-...
-
-## Full documentation
-...
-
-## Join the __________ community
-* Website:
-* Facebook page:
-* Mailing list
-* irc:
+## Contributing
 See the CONTRIBUTING file for how to help out.
 
 ## License
-__________ is BSD-licensed. We also provide an additional patent grant.
+XAR is BSD-licensed. We also provide an additional patent grant.
