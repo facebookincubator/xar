@@ -16,8 +16,8 @@
             working_directory: ~/zstd
             command: |
               wget https://github.com/facebook/zstd/archive/v1.3.4.tar.gz -O - | tar -xz
-              cd zstd-1.3.4
-              make && sudo make install prefix=/usr
+              cd zstd-1.3.4/lib
+              make ZSTD_LEGACY_SUPPORT=0 && sudo make install prefix=/usr
         - run:
             name: Installing squashfs-tools
             working_directory: ~/squashfs-tools
