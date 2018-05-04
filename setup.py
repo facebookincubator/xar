@@ -24,6 +24,9 @@ setup(
         "setuptools>=34.1",
         "wheel",
     ],
+    test_requires=[
+        "pytest",
+    ],
     entry_points={
         'distutils.commands': [
             'bdist_xar = xar.commands.bdist_xar:bdist_xar',
