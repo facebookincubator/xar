@@ -3,3 +3,4 @@ __pycache__/
 build/
 dist/
 xar.egg-info/
+*.pyc

@@ -7,6 +7,7 @@ import collections
 import errno
 import logging
 import os
+import platform
 import shutil
 import stat
 import struct
@@ -17,6 +18,12 @@ import sys
 import uuid
 
 logger = logging.getLogger('xar')
+
+if 'centos' in platform.platform().lower():
+    NOGROUP = 'nobody'
+else:
+    # Works for debian and darwin for sure
+    NOGROUP = 'nogroup'
 
 
 def make_uuid():
@@ -69,7 +76,7 @@ class XarFactory(object):
         cmd = ["mksquashfs", self.dirname, tf.name, "-noappend",
                '-noI', '-noX',  # is this worth it?  probably
                '-force-uid', 'nobody',
-               '-force-gid', 'nobody',
+               '-force-gid', NOGROUP,
                '-b', str(sqopts.block_size),
                "-comp", sqopts.compression_algorithm]
         if sqopts.compression_algorithm == 'zstd':
