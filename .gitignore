@@ -1,6 +1,0 @@
-.pytest_cache/
-__pycache__/
-build/
-dist/
-xar.egg-info/
-*.pyc
