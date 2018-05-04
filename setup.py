@@ -13,19 +13,16 @@ def get_long_description():
 
 
 setup(
-    name='xar',
-    version='0.69',
+    name="xar",
+    version="0.69",
     description="The XAR packaging toolchain.",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
     author="Chip Turner",
     author_email="chip@fb.com",
-    url='https://github.com/facebook/xar',
+    url="https://github.com/facebook/xar",
     license="BSD",
-    packages=[
-        'xar',
-        'xar.commands',
-    ],
+    packages=["xar", "xar.commands"],
     install_requires=[
         # Version 34.1 fixes a bug in the dependency resolution. If this is
         # causing an problem for you, please open an issue, and we can evaluate
@@ -45,13 +42,9 @@ setup(
         "Programming Language :: Python :: 3.6",
     ],
     entry_points={
-        'distutils.commands': [
-            'bdist_xar = xar.commands.bdist_xar:bdist_xar',
-        ],
-        'console_scripts': [
-            'make_xar = xar.make_xar:main',
-        ],
+        "distutils.commands": ["bdist_xar = xar.commands.bdist_xar:bdist_xar"],
+        "console_scripts": ["make_xar = xar.make_xar:main"],
     },
     # Add the bdist_xar command in so
-    cmdclass={'bdist_xar': bdist_xar},
+    cmdclass={"bdist_xar": bdist_xar},
 )
