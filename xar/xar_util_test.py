@@ -162,10 +162,6 @@ class XarUtilTest(xar_test_helpers.XarTestCase):
         with clone.open("r+t") as f:
             self.assertEqual(data, f.read())
 
-    def test_environment_python_interpreter(self):
-        interpreter = py_util.environment_python_interpreter()
-        self.assertTrue(interpreter.startswith("/usr/bin/env"))
-
     def make_test_skeleton(self):
         "Make a simple tree of test files"
         srcdir = tempfile.mkdtemp()

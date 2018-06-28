@@ -383,7 +383,8 @@ class PythonXarBuilder(XarBuilder):
         # We only support wheels.
         if not distribution.has_metadata(py_util.Wheel.WHEEL_INFO):
             raise self.InvalidDistributionError(
-                "'%s' is not a wheel!" % distribution.location
+                "'%s' is not a wheel! It might be an egg, try reinstalling as "
+                "a wheel." % distribution.project_name
             )
         wheel = py_util.Wheel(distribution=distribution)
         sys_paths = wheel.sys_install_paths()
