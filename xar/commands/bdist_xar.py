@@ -179,15 +179,6 @@ class bdist_xar(Command):
         entry_point_str = "%s:%s" % (entry_point.module_name, attrs)
         xar.set_entry_point(entry_point_str)
 
-    def _add_dependencies(self, xar, dist, entry_point=None):
-        # The entry point may require extra dependencies
-        extras = entry_point.extras if entry_point else ()
-        # Add in the dependencies
-        deps = pkg_resources.working_set.resolve(dist.requires(extras=extras))
-        for dep in deps:
-            xar.add_distribution(dep)
-        return set(deps)
-
     def _build_entry_point(self, base_xar, dist, common_deps, entry_name, entry_point):
         # Clone the base xar
         xar = copy.deepcopy(base_xar)
@@ -198,6 +189,7 @@ class bdist_xar(Command):
         deps = set(pkg_resources.working_set.resolve(requires, extras=extras))
         deps -= common_deps
         for dep in deps:
+            log.info("adding dependency '%s' to xar" % dep.project_name)
             xar.add_distribution(dep)
         # Set the entry point
         self._set_entry_point(xar, entry_point)
@@ -216,6 +208,7 @@ class bdist_xar(Command):
             # Add in the dependencies common to each entry_point
             deps = set(pkg_resources.working_set.resolve(dist.requires()))
             for dep in deps:
+                log.info("adding dependency '%s' to xar" % dep.project_name)
                 xar.add_distribution(dep)
             # Set the interpreter to the current python interpreter
             if self.interpreter is not None:
