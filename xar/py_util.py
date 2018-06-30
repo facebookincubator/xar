@@ -235,7 +235,7 @@ class Wheel(object):
         """Return the system wheel install locations."""
         sys_paths = paths.get_install_paths(self.name)
         for key in sys_paths:
-            sys_paths[key] = os.path.normpath(sys_paths[key])
+            sys_paths[key] = os.path.realpath(sys_paths[key])
         return sys_paths
 
     def install(self, src_paths, dst_paths, force=False):
@@ -257,16 +257,38 @@ class Wheel(object):
         wf = install.WheelFile(self.distribution.location)
         wf.install(overrides=dst_paths, force=force)
 
-    def _determine_kind(self, src_paths, dst_paths, src_record):
+    def _determine_kind(self, src_root, src_paths, dst_paths, src_record):
         """
         Determine the most specific `src_paths` kind that the `src_record` is
         located under. If the most specific kind has the same `src_paths[kind]`
         as another kind, then the `dst_paths` must be the same as well.
         """
+        kinds = []
         for prefix in xar_util.yield_prefixes_reverse(src_record):
             if prefix in src_paths.values():
                 kinds = [kind for kind, path in src_paths.items() if prefix == path]
                 break
+        else:
+            # We were unable to determine the kind, fall back to a heuristic.
+            # * If the path contains "/lib/" it is a {pure,plat}lib.
+            # * If the path contains "/bin/" it is a script.
+            # * If the path contains the name and "include" it is a header.
+            # * If the src_root ends with "site-pacakges", the data may be in
+            #   "src_root/../../..".
+            # This is necessary for Python installed with Homebrew on OS X.
+            data = None
+            if src_root.endswith("site-packages"):
+                data = os.path.normpath(os.path.join(src_root, "../../.."))
+            for prefix in xar_util.yield_prefixes_reverse(src_record):
+                if prefix.endswith("site-packages"):
+                    assert dst_paths["purelib"] == dst_paths["platlib"]
+                    return "purelib", prefix
+                if prefix.endswith("bin"):
+                    return "scripts", prefix
+                if prefix.endswith(self.name) and "include" in prefix:
+                    return "headers", prefix
+                if data and prefix == data:
+                    return "data", prefix
         # We must have exactly one unique prefix
         xar_prefix = [dst_paths[kind] for kind in kinds]
         if not kinds or not all(p == xar_prefix[0] for p in xar_prefix):
@@ -275,7 +297,7 @@ class Wheel(object):
                 % (self.namever, src_record)
             )
         kind = kinds[0]
-        return kind
+        return kind, src_paths[kind]
 
     def copy_installation(self, src_paths, dst_paths, force=False):
         """
@@ -305,8 +327,10 @@ class Wheel(object):
                 # Get the normalized absolute path for the source record
                 src_record = os.path.normpath(os.path.join(src_root, record))
                 # Determine what 'kind' the record is, and get dst_record path.
-                kind = self._determine_kind(src_paths, dst_paths, src_record)
-                rel_record = src_record[len(src_paths[kind]) + 1 :]
+                kind, prefix = self._determine_kind(
+                    src_root, src_paths, dst_paths, src_record
+                )
+                rel_record = src_record[len(prefix) + 1 :]
                 dst_record = os.path.join(dst_paths[kind], rel_record)
                 # Update the destination RECORD file.
                 new_record = os.path.relpath(dst_record, dst_root)
