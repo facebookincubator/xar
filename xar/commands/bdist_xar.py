@@ -179,14 +179,25 @@ class bdist_xar(Command):
         entry_point_str = "%s:%s" % (entry_point.module_name, attrs)
         xar.set_entry_point(entry_point_str)
 
+    def _deps(self, dist, extras=()):
+        requires = dist.requires(extras=extras)
+        try:
+            # Requires setuptools>=34.1 for the bug fix.
+            return set(pkg_resources.working_set.resolve(requires, extras=extras))
+        except pkg_resources.DistributionNotFound:
+            name = self.distribution.get_name()
+            requires_str = "\n\t".join(str(req) for req in requires)
+            log.error(
+                "%s's requirements are not satisfied "
+                "(try 'pip install /path/to/%s'):\n\t%s" % (name, name, requires_str)
+            )
+            raise
+
     def _build_entry_point(self, base_xar, dist, common_deps, entry_name, entry_point):
         # Clone the base xar
         xar = copy.deepcopy(base_xar)
         # Add in any extra dependencies
-        extras = entry_point.extras
-        requires = dist.requires(extras=extras)
-        # Requires setuptools>=34.1 for the bug fix.
-        deps = set(pkg_resources.working_set.resolve(requires, extras=extras))
+        deps = self._deps(dist, entry_point.extras)
         deps -= common_deps
         for dep in deps:
             log.info("adding dependency '%s' to xar" % dep.project_name)
@@ -206,7 +217,7 @@ class bdist_xar(Command):
             # Build an egg for this package and import it.
             dist = self._add_distribution(xar)
             # Add in the dependencies common to each entry_point
-            deps = set(pkg_resources.working_set.resolve(dist.requires()))
+            deps = self._deps(dist)
             for dep in deps:
                 log.info("adding dependency '%s' to xar" % dep.project_name)
                 xar.add_distribution(dep)
