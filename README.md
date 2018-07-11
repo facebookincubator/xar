@@ -65,21 +65,35 @@ The downside is that it requires a setuid helper to perform the mounting.
 
 ## Benchmarks
 
-The benchmarks are run on a smaller tool [black](https://github.com/ambv/black),
-and a larger tool [django-admin](https://github.com/django/django).
+Optimizing performance (both space and execution time) was a key design goal for
+XARs. We ran benchmark tests with open source tools to compare PEX, XAR, and
+native installs on the following metrics:
+
+* **Size:** file size, in bytes, of the executable
+* **Cold start time:** time taken when we have nothing mounted or extracted
+* **Hot start time:** time taken when we have extracted cache or mounted XAR squashfs
 
 The PEXs are built with `python3 setup.py bdist_pex --bdist-all`, and the XARs
 are built with `python3 setup.py bdist_xar --xar-compression-algorithm=zstd`.
-The start times are the time it takes to run the script with no arguments.
 
-| Console Script     | Size             | Cold start time | Hot start time |
-|--------------------|------------------|-----------------|----------------|
-| `django-admin.pex` | 8529089 B        | 1.705 s         | 0.772 s        |
-| `django-admin.xar` | 5464064 B (-36%) | 0.141 s (-92%)  | 0.122 s (-84%) |
-|--------------------|------------------|-----------------|----------------|
-| `black.pex`        |  677550 B        | 0.737 s         | 0.619 s        |
-| `black.xar`        |  307200 B (-55%) | 0.245 s (-67%)  | 0.219 s (-65%) |
+| Console script        | Size               | Cold start time | Hot start time |
+|-----------------------|--------------------|-----------------|----------------|
+| django-admin (native) |  22851072 B        | -               | 0.220 s        |
+| django-admin.pex      |   8529089 B        | 1.705 s         | 0.772 s        |
+| django-admin.xar      |   5464064 B (-36%) | 0.141 s (-92%)  | 0.122 s (-84%) |
+| black (native)        |   1020928 B        | -               | 0.245 s        |
+| black.pex             |    677550 B        | 0.737 s         | 0.619 s        |
+| black.xar             |    307200 B (-55%) | 0.245 s (-67%)  | 0.219 s (-65%) |
+| jupyter (native)      |  64197120 B        | -               | 0.399 s        |
+| jupyter.pex           |  17315669 B        | 2.152 s         | 1.046 s        |
+| jupyter.xar           |  17530880 B (+1%)  | 0.213 s (-90%)  | 0.181 s (-83%) |
 
+The results show that both file size (with [zstd compression]) and start times
+improve with XARs. This is an improvement when shipping to large number of
+servers, especially with short-running executables, such as small data
+collection scripts on web servers or interactive command line tools.
+
+[zstd compression]: https://code.fb.com/core-data/smaller-and-faster-data-compression-with-zstandard/
 
 ## Requirements
 XAR requires:
