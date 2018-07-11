@@ -21,7 +21,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Chip Turner",
     author_email="chip@fb.com",
-    url="https://github.com/facebook/xar",
+    url="https://github.com/facebookincubator/xar",
     license="BSD",
     packages=["xar", "xar.commands"],
     install_requires=[
