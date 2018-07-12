@@ -9,14 +9,13 @@ from __future__ import absolute_import, division, print_function
 import copy
 import os
 import sys
-import zipimport
 from distutils import log
 from distutils.dir_util import mkpath, remove_tree
 from distutils.errors import DistutilsOptionError
 
 import pkg_resources
 from setuptools import Command
-from xar import py_util, xar_builder, xar_util
+from xar import finders, pip_installer, py_util, xar_builder, xar_util
 
 
 class bdist_xar(Command):
@@ -37,6 +36,7 @@ class bdist_xar(Command):
             "Default: build the script with the package name, or if there is "
             "only one console script build that, otherwise fail.",
         ),
+        ("download", None, "Download missing dependencies using pip"),
         (
             "xar-exec=",
             None,
@@ -92,6 +92,7 @@ class bdist_xar(Command):
         self.skip_build = False
         self.console_scripts = None
         self.interpreter = None
+        self.download = False
         # XAR options
         self.xar_exec = None
         self.xar_mount_root = None
@@ -120,16 +121,17 @@ class bdist_xar(Command):
             self.sqopts.zstd_level = self.xar_zstd_level
         self.xar_outputs = []
 
+        self.working_set = pkg_resources.WorkingSet(sys.path)
+        self.installer = None
+        if self.download:
+            bdist_pip = os.path.join(self.bdist_dir, "downloads")
+            mkpath(bdist_pip)
+            self.installer = pip_installer.PipInstaller(
+                bdist_pip, self.working_set, log
+            )
+
     def get_outputs(self):
         return self.xar_outputs
-
-    def _distribution_from_wheel(self, wheel):
-        importer = zipimport.zipimporter(wheel)
-        metadata = py_util.WheelMetadata(importer)
-        dist = pkg_resources.DistInfoDistribution.from_filename(
-            wheel, metadata=metadata
-        )
-        return dist
 
     def _add_distribution(self, xar):
         bdist_wheel = self.reinitialize_command("bdist_wheel")
@@ -143,7 +145,7 @@ class bdist_xar(Command):
         self.run_command("bdist_wheel")
         assert len(bdist_wheel.distribution.dist_files) == 1
         wheel = bdist_wheel.distribution.dist_files[0][2]
-        dist = self._distribution_from_wheel(wheel)
+        dist = py_util.Wheel(location=wheel).distribution
         xar.add_distribution(dist)
         return dist
 
@@ -182,14 +184,21 @@ class bdist_xar(Command):
     def _deps(self, dist, extras=()):
         requires = dist.requires(extras=extras)
         try:
+            finders.register_finders()
             # Requires setuptools>=34.1 for the bug fix.
-            return set(pkg_resources.working_set.resolve(requires, extras=extras))
+            return set(
+                self.working_set.resolve(
+                    requires, extras=extras, installer=self.installer
+                )
+            )
         except pkg_resources.DistributionNotFound:
             name = self.distribution.get_name()
             requires_str = "\n\t".join(str(req) for req in requires)
             log.error(
-                "%s's requirements are not satisfied "
-                "(try 'pip install /path/to/%s'):\n\t%s" % (name, name, requires_str)
+                "%s's requirements are not satisfied:\n\t%s\n"
+                "Either pass --download to bdist_xar to download missing "
+                "dependencies with pip or try 'pip install /path/to/%s'."
+                % (name, requires_str, name)
             )
             raise
 

@@ -25,6 +25,7 @@ setup(
     license="BSD",
     packages=["xar", "xar.commands"],
     install_requires=[
+        "pip>=10.0.1",
         # Version 34.1 fixes a bug in the dependency resolution. If this is
         # causing an problem for you, please open an issue, and we can evaluate
         # a workaround. (grep setuptools>=34.1 to see issue)

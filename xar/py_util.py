@@ -172,7 +172,7 @@ class Wheel(object):
         """Returns True if `path` is a wheel."""
         return path.lower().endswith(".whl")
 
-    def __init__(self, distribution=None, location=None):
+    def __init__(self, distribution=None, location=None, importer=None):
         """
         Constructs the WheelDistribution
         """
@@ -184,24 +184,36 @@ class Wheel(object):
         else:
             # Construct the metadata provider
             if self.is_wheel_archive(location):
-                importer = zipimport.zipimporter(location)
+                importer = importer or zipimport.zipimporter(location)
                 metadata = WheelMetadata(importer)
             else:
                 root = os.path.dirname(location)
                 metadata = pkg_resources.PathMetadata(root, location)
-            self.distribution = pkg_resources.DistInfoDistribution.from_filename(
-                location, metadata=metadata
+            project_name, version, py_version, platform = [None] * 4
+            match = self.WHEEL_INFO_RE(os.path.basename(metadata.egg_info))
+            if match:
+                project_name, version, py_version, platform = match.group(
+                    "name", "ver", "pyver", "plat"
+                )
+                py_version = py_version or sys.version_info[0]
+            self.distribution = pkg_resources.DistInfoDistribution(
+                location,
+                metadata,
+                project_name=project_name,
+                version=version,
+                py_version=py_version,
+                platform=platform,
             )
         # self.distribution.egg_info is the only reliable way to get the name.
         # I'm not sure if egg_info is a public interface, but we already rely
         # on it for WheelMetadata.
-        basename = os.path.basename(self.distribution.egg_info)
-        parsed_filename = self.WHEEL_INFO_RE(basename)
+        wheel_info = os.path.basename(self.distribution.egg_info)
+        parsed_filename = self.WHEEL_INFO_RE(wheel_info)
         if parsed_filename is None:
-            raise self.Error("Bad wheel '%s'" % location)
-        self.name = parsed_filename.group("name")
-        self.ver = parsed_filename.group("ver")
-        self.namever = parsed_filename.group("namever")
+            raise self.Error("Bad wheel '%s'" % wheel_info)
+        self.name, self.ver, self.namever = parsed_filename.group(
+            "name", "ver", "namever"
+        )
 
     def is_purelib(self):
         """Returns True if the Wheel is a purelib."""
