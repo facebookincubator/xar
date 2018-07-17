@@ -154,9 +154,11 @@ class bdist_xar(Command):
         Get a map of console scripts to build based on :self.console_scripts:.
         """
         name = self.distribution.get_name()
+        all_console_scripts = []
         entry_points = self.distribution.entry_points
-        entry_points = pkg_resources.EntryPoint.parse_map(entry_points)
-        all_console_scripts = entry_points.get("console_scripts", {})
+        if entry_points:
+            entry_points = pkg_resources.EntryPoint.parse_map(entry_points)
+            all_console_scripts = entry_points.get("console_scripts", {})
         if len(all_console_scripts) == 0:
             raise DistutilsOptionError("'%s' has no 'console_scripts'" % name)
         if self.console_scripts == self.ALL:
