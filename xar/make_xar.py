@@ -103,7 +103,9 @@ def main():
         default=None,
         help="Executable invoked once the XAR is mounted. It must "
         "be a path relative to the XAR root. If unset the XAR "
-        "is not executable.",
+        "is not executable. The arguments passed to the executable when "
+        "invoked are the XAR path, followed by all the arguments passed to "
+        "the XAR.",
     )
     opts = p.parse_args()
 
