@@ -33,3 +33,17 @@ except ImportError:
         def source_from_cache(path):
             assert path.endswith("c") or path.endswith("o")
             return path[:-1]
+
+
+if PY2:
+
+    def native(s, encoding="ascii"):
+        return s
+
+
+else:
+
+    def native(s, encoding="ascii"):
+        if isinstance(s, bytes):
+            return s.decode(encoding)
+        return s

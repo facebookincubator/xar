@@ -6,7 +6,9 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import base64
 import csv
+import hashlib
 import logging
 import os
 import platform
@@ -23,7 +25,7 @@ import zipimport
 import pkg_resources
 from wheel import install, paths, pep425tags, pkginfo
 from xar import xar_util
-from xar.compat import cache_from_source, source_from_cache
+from xar.compat import cache_from_source, native, source_from_cache
 
 
 logger = logging.getLogger("xar")
@@ -143,6 +145,21 @@ class WheelMetadata(pkg_resources.EggMetadata):
                 self.egg_info = os.path.join(path, wf.distinfo_name)
                 self.egg_root = path
                 break
+
+
+def does_sha256_match(self, file, expected_hash):
+    """
+    Does `file`'s sha256 match `expected_hash`. The `expected_hash` is expected
+    to be in the format of RECORD files: sha256=urlsafe_b64_with_no_trailing_==.
+    """
+    h = hashlib.sha256()
+    with open(file, "rb") as f:
+        data = f.read(4096)
+        while data:
+            h.update(data)
+            data = f.read(4096)
+    hash = b"sha256=" + base64.urlsafe_b64_encode(h.digest()).rstrip(b"=")
+    return hash == expected_hash
 
 
 class Wheel(object):
@@ -267,7 +284,11 @@ class Wheel(object):
         if not self.is_wheel_archive(self.distribution.location):
             raise self.Error("install() only works with archives")
         wf = install.WheelFile(self.distribution.location)
-        wf.install(overrides=dst_paths, force=force)
+        # TODO: The next version of wheel doesn't provide WheelFile,
+        # so we will need to have our own implementation of wf.install().
+        # When you fix that, please make force=False allow overwrites if the
+        # hashes match. You can use does_sha256_match().
+        wf.install(overrides=dst_paths, force=True)
 
     def _determine_kind(self, src_root, src_paths, dst_paths, src_record):
         """
@@ -352,7 +373,8 @@ class Wheel(object):
                     continue
                 # Copy or overwrite the record
                 if os.path.exists(dst_record) and not force:
-                    raise self.Error("'%s' already exists" % dst_record)
+                    if not does_sha256_match(dst_record, native(record_hash)):
+                        raise self.Error("'%s' already exists" % dst_record)
                 xar_util.safe_mkdir(os.path.dirname(dst_record))
                 shutil.copy2(src_record, dst_record)
 
