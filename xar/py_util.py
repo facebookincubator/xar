@@ -147,7 +147,7 @@ class WheelMetadata(pkg_resources.EggMetadata):
                 break
 
 
-def does_sha256_match(self, file, expected_hash):
+def does_sha256_match(file, expected_hash):
     """
     Does `file`'s sha256 match `expected_hash`. The `expected_hash` is expected
     to be in the format of RECORD files: sha256=urlsafe_b64_with_no_trailing_==.
@@ -158,8 +158,8 @@ def does_sha256_match(self, file, expected_hash):
         while data:
             h.update(data)
             data = f.read(4096)
-    hash = b"sha256=" + base64.urlsafe_b64_encode(h.digest()).rstrip(b"=")
-    return hash == expected_hash
+    hash = b"sha256=" + base64.urlsafe_b64encode(h.digest()).rstrip(b"=")
+    return native(hash) == expected_hash
 
 
 class Wheel(object):
@@ -373,7 +373,7 @@ class Wheel(object):
                     continue
                 # Copy or overwrite the record
                 if os.path.exists(dst_record) and not force:
-                    if not does_sha256_match(dst_record, native(record_hash)):
+                    if not does_sha256_match(dst_record, record_hash):
                         raise self.Error("'%s' already exists" % dst_record)
                 xar_util.safe_mkdir(os.path.dirname(dst_record))
                 shutil.copy2(src_record, dst_record)
