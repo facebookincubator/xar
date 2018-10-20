@@ -31,7 +31,7 @@ setup(
         # a workaround. (grep setuptools>=34.1 to see issue)
         # https://github.com/pypa/setuptools/commit/8c1f489f09434f42080397367b6491e75f64d838  # noqa: E501
         "setuptools>=34.1",
-        "wheel",
+        "wheel<=0.31.1",
     ],
     test_requires=["mock", "pytest"],
     classifiers=[

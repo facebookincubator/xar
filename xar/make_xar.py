@@ -41,7 +41,7 @@ class XarArgumentError(Exception):
     pass
 
 
-def main():
+def main(args=None):
     logging.basicConfig(
         level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s"
     )
@@ -87,7 +87,7 @@ def main():
         help="Python interpreter for building and running the XAR. "
         "If not set and constructing from a zip archive we try "
         "to extract the shebang to get the Python interpreter. "
-        "Otherwise we default to 'python'.",
+        "Otherwise we default to an interpreter compatible with the running Python.",
     )
     p.add_argument(
         "--python-entry-point",
@@ -107,7 +107,7 @@ def main():
         "invoked are the XAR path, followed by all the arguments passed to "
         "the XAR.",
     )
-    opts = p.parse_args()
+    opts = p.parse_args(args)
 
     squashfs_options = xar_util.SquashfsOptions()
     squashfs_options.compression_algorithm = opts.xar_compression_algorithm
@@ -122,7 +122,7 @@ def main():
         # Infer interpreter and entry_point if unset.
         if os.path.isdir(opts.python):
             xar.add_directory(opts.python)
-            entry_point = entry_point or xar_util.get_python_main(opts.python)
+            entry_point = entry_point or py_util.get_python_main(opts.python)
         else:
             z_interpreter, z_entry_point = py_util.extract_python_archive_info(
                 opts.python
@@ -134,7 +134,8 @@ def main():
         if entry_point is None:
             raise XarArgumentError("Python entry point not set and no __main__")
 
-        xar.set_interpreter(interpreter)
+        if interpreter is not None:
+            xar.set_interpreter(interpreter)
         xar.set_entry_point(entry_point)
     elif opts.raw:
         xar = xar_builder.XarBuilder(opts.xar_exec, opts.xar_mount_root)

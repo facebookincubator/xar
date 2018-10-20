@@ -47,6 +47,13 @@ def parse_entry_point(entry_point):
     else:
         return (module, None)
 
+def get_python_main(directory):
+    """Returns the python __main__ from a directory (if it exists)."""
+    main = os.path.join(directory, "__main__")
+    main_exists = any(os.path.exists(main + ext) for ext in PYTHON_EXTS)
+    if main_exists:
+        return "__main__"
+    return None
 
 def extract_python_archive_info(archive):
     """
@@ -103,6 +110,7 @@ def is_python_version(interpreter, version_info):
 import sys
 print('.'.join(str(x) for x in sys.version_info))
     """
+    assert interpreter is not None
     with tempfile.NamedTemporaryFile("w+t", delete=False) as f:
         f.write(VERSION_INFO_MAIN)
         f.flush()
