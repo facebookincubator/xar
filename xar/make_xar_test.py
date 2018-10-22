@@ -36,6 +36,13 @@ class MakeXarTest(unittest.TestCase):
         finally:
             xar_util.safe_rmtree(dir)
 
+    def xarexec_exists(self):
+        try:
+            subprocess.check_call(["which", "xarexec_fuse"])
+            return True
+        except subprocess.CalledProcessError:
+            return False
+
     def check_xar(self, xarfile):
         return subprocess.check_output([xarfile]).strip()
 
@@ -43,10 +50,12 @@ class MakeXarTest(unittest.TestCase):
         with self.make_test_directory() as (xar, dir):
             args = ["--output", xar, "--python", dir]
             make_xar.main(args)
-            self.assertEqual(self.check_xar(xar), b"python")
+            if self.xarexec_exists():
+                self.assertEqual(self.check_xar(xar), b"python")
             args += ["--python-entry-point", "other"]
             make_xar.main(args)
-            self.assertEqual(self.check_xar(xar), b"other")
+            if self.xarexec_exists():
+                self.assertEqual(self.check_xar(xar), b"other")
 
     def test_make_python_xar_from_archive(self):
         if zipapp is None:
@@ -56,17 +65,21 @@ class MakeXarTest(unittest.TestCase):
                 zipapp.create_archive(dir, zip.name)
                 args = ["--output", xar, "--python", zip.name]
                 make_xar.main(args)
-                self.assertEqual(self.check_xar(xar), b"python")
+                if self.xarexec_exists():
+                    self.assertEqual(self.check_xar(xar), b"python")
                 args += ["--python-entry-point", "other"]
                 make_xar.main(args)
-                self.assertEqual(self.check_xar(xar), b"other")
+                if self.xarexec_exists():
+                    self.assertEqual(self.check_xar(xar), b"other")
 
     def test_make_raw_xar(self):
         with self.make_test_directory() as (xar, dir):
             args = ["--output", xar, "--raw", dir]
             make_xar.main(args)
-            with self.assertRaises(OSError):
-                self.check_xar(xar)
+            if self.xarexec_exists():
+                with self.assertRaises(OSError):
+                    self.check_xar(xar)
             args += ["--raw-executable", "__main__.sh"]
             make_xar.main(args)
-            self.assertEqual(self.check_xar(xar), b"shell")
+            if self.xarexec_exists():
+                self.assertEqual(self.check_xar(xar), b"shell")
