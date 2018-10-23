@@ -1,5 +1,4 @@
-# Copyright (c) 2018-present, Facebook, Inc.
-# All rights reserved.
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
@@ -229,7 +228,9 @@ class StagingDirectory(object):
         st = os.stat(fpath)
         old_times = (st.st_atime, st.st_mtime)
 
-        with tempfile.NamedTemporaryFile(prefix=fpath + '.', mode='w', delete=False) as outf:
+        with tempfile.NamedTemporaryFile(
+            prefix=fpath + ".", mode="w", delete=False
+        ) as outf:
             with open(fpath) as inf:
                 yield inf, outf
 

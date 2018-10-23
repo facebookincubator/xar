@@ -1,5 +1,4 @@
-# Copyright (c) 2018-present, Facebook, Inc.
-# All rights reserved.
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
@@ -23,7 +22,7 @@ import zipfile
 import zipimport
 
 import pkg_resources
-from wheel import install, paths, pep425tags, pkginfo
+from wheel import install, paths, pkginfo
 from xar import xar_util
 from xar.compat import cache_from_source, native, source_from_cache
 
@@ -47,6 +46,7 @@ def parse_entry_point(entry_point):
     else:
         return (module, None)
 
+
 def get_python_main(directory):
     """Returns the python __main__ from a directory (if it exists)."""
     main = os.path.join(directory, "__main__")
@@ -54,6 +54,7 @@ def get_python_main(directory):
     if main_exists:
         return "__main__"
     return None
+
 
 def extract_python_archive_info(archive):
     """

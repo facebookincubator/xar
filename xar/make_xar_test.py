@@ -1,5 +1,4 @@
-# Copyright (c) 2018-present, Facebook, Inc.
-# All rights reserved.
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
@@ -13,6 +12,7 @@ import tempfile
 import unittest
 
 from xar import make_xar, xar_util
+
 
 try:
     import zipapp

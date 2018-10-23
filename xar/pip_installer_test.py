@@ -1,5 +1,4 @@
-# Copyright (c) 2018-present, Facebook, Inc.
-# All rights reserved.
+# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
@@ -15,6 +14,7 @@ import unittest
 
 import pkg_resources
 from xar import pip_installer, xar_util
+
 
 try:
     from unittest import mock
