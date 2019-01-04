@@ -3,7 +3,7 @@
 <p align="center">
 <a href="https://circleci.com/gh/facebookincubator/xar"><img alt="CircleCI Status" src="https://circleci.com/gh/facebookincubator/xar.svg?style=shield&circle-token=79452315bcb15c6fa74a3af99829bb8b31ee366d"></a>
 <a href="https://github.com/ambv/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
-[![Downloads](https://pepy.tech/badge/xar)](https://pepy.tech/project/xar)
+<a href="https://pepy.tech/project/xar"><img alt="Downloads" src="https://pepy.tech/badge/xar"></a>
 </p>
 
 XAR lets you package many files into a single self-contained executable file.
