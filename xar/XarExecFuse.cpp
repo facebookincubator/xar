@@ -447,6 +447,7 @@ int main(int argc, char** argv) {
     FATAL << "mkdir failed:" << strerror(errno);
   }
 
+  bool newMount = false;
   // TODO(chip): also mount DEPENDENCIES
   if (!is_squashfuse_mounted(mount_path, true)) {
     // Check mount_path sanity before mounting; once mounted, though,
@@ -492,6 +493,7 @@ int main(int argc, char** argv) {
         FATAL << "squashfuse_ll failed with unknown exit status " << status;
       }
     }
+    newMount = true;
   }
 
   // Wait for up to 9 seconds for mount to be available
@@ -563,6 +565,10 @@ int main(int argc, char** argv) {
     if (debugging) {
       cerr << "  exec arg: " << newArgs[i] << endl;
     }
+  }
+
+  if (newMount) {
+      setenv("XARFUSE_NEW_MOUNT", "1", 1);
   }
   umask(old_umask);
   if (execv(newArgs[0], newArgs) != 0) {
