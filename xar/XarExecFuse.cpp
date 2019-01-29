@@ -73,8 +73,8 @@ const char* kMountRoot = "MOUNT_ROOT";
 // clean_xar_mounts uses 15 minutes
 const size_t kSquashFuseDefaultTimeout = 870;
 const char* kSquashFuseExecutable = "squashfuse_ll";
-const char* kSquashFuseTimeoutKillswitch =
-    "/var/lib/xarexec_timeout_killswitch";
+const char* kSquashFuseTimeoutOverride =
+    "/var/lib/xarexec_timeout_override";
 
 using std::cerr;
 using std::cout;
@@ -266,20 +266,30 @@ void sanitize_file_descriptors() {
   }
 }
 
-// Set timeout based on the XAR_MOUNT_TIMEOUT environment variable.
-// If it is empty, or the killswitch file exists, use no timeout; if
-// it is unset, use the default.  Otherwise, it is the timeout (in
-// seconds) to pass to squashfuse_ll.
+// Determine timeout to use for fuse filesystem, in seconds. Zero
+// is no timeout.
+//
+// If XAR_MOUNT_TIMEOUT environment variable is set, parse as timeout
+// value in seconds (empty setting is treated as zero).
+//
+// Otherwise if the override file is present, parse as timeout value
+// in seconds.
+//
+// Otherwise return compile time default.
 size_t get_squashfuse_timeout() {
-  if (access(kSquashFuseTimeoutKillswitch, F_OK) == 0) {
-    return 0UL;
-  }
   const auto env_timeout = getenv("XAR_MOUNT_TIMEOUT");
   if (env_timeout) {
     return std::strtoul(env_timeout, nullptr, 10);
-  } else {
-    return kSquashFuseDefaultTimeout;
   }
+
+  std::ifstream overrideFile(kSquashFuseTimeoutOverride);
+  if (overrideFile.is_open()) {
+      unsigned to;
+      if (overrideFile >> to) {
+          return to;
+      }
+  }
+  return kSquashFuseDefaultTimeout;
 }
 
 void usage() {
