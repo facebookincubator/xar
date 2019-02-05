@@ -579,7 +579,7 @@ fn main() {
         let stderr = &mut ::std::io::stderr();
         let errmsg = "Error writing to stderr";
 
-        writeln!(stderr, "{}, {}", e.cause(), e.backtrace()).expect(errmsg);
+        writeln!(stderr, "{}, {}", e.as_fail(), e.backtrace()).expect(errmsg);
         ::std::process::exit(1);
     }
 }
