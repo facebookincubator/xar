@@ -167,7 +167,7 @@ class bdist_xar(Command):
             if len(all_console_scripts) == 1:
                 return all_console_scripts
             if name in all_console_scripts:
-                return {name: self.console_scripts[name]}
+                return {name: all_console_scripts[name]}
             raise DistutilsOptionError(
                 "More than one entry point, set --console-scripts"
             )
