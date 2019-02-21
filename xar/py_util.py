@@ -22,9 +22,9 @@ import zipfile
 import zipimport
 
 import pkg_resources
-from wheel import install, paths, pkginfo
 from xar import xar_util
 from xar.compat import cache_from_source, native, source_from_cache
+from xar.vendor.wheel import install, paths, pkginfo
 
 
 logger = logging.getLogger("xar")

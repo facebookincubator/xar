@@ -25,7 +25,13 @@ setup(
     author_email="chip@fb.com",
     url="https://github.com/facebookincubator/xar",
     license="BSD",
-    packages=["xar", "xar.commands"],
+    packages=[
+        "xar",
+        "xar.commands",
+        "xar.vendor",
+        "xar.vendor.wheel",
+        "xar.vendor.wheel.signatures",
+    ],
     install_requires=[
         "pip>=10.0.1",
         # Version 34.1 fixes a bug in the dependency resolution. If this is
@@ -33,7 +39,6 @@ setup(
         # a workaround. (grep setuptools>=34.1 to see issue)
         # https://github.com/pypa/setuptools/commit/8c1f489f09434f42080397367b6491e75f64d838  # noqa: E501
         "setuptools>=34.1",
-        "wheel<=0.31.1",
     ],
     test_requires=["mock", "pytest"],
     classifiers=[
