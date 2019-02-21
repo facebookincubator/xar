@@ -28,6 +28,7 @@ setup(
     packages=[
         "xar",
         "xar.commands",
+        "xar.tests",
         "xar.vendor",
         "xar.vendor.wheel",
         "xar.vendor.wheel.signatures",

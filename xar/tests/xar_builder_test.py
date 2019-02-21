@@ -8,7 +8,8 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import copy
 import os
 
-from xar import xar_builder, xar_test_helpers, xar_util
+from xar import xar_builder, xar_util
+from xar.tests import xar_test_helpers
 
 
 class XarBuilderTest(xar_test_helpers.XarTestCase):

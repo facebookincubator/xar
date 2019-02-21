@@ -11,7 +11,8 @@ import os
 import tempfile
 import unittest
 
-from xar import py_util, xar_builder, xar_test_helpers, xar_util
+from xar import py_util, xar_builder, xar_util
+from xar.tests import xar_test_helpers
 
 
 class XarUtilTest(xar_test_helpers.XarTestCase):
