@@ -17,7 +17,7 @@ def get_long_description():
 
 setup(
     name="xar",
-    version="18.07.12",
+    version="19.4.22",
     description="The XAR packaging toolchain.",
     long_description=get_long_description(),
     long_description_content_type="text/markdown",
