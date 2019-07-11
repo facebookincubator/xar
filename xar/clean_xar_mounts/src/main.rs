@@ -121,9 +121,9 @@ fn get_mount_namespaces() -> Result<Vec<MountNamespaceInfo>> {
         namespace_dedup.insert(
             inode,
             MountNamespaceInfo {
-                namespace_path: namespace_path,
-                chroot_path: chroot_path,
-                pid: pid,
+                namespace_path,
+                chroot_path,
+                pid,
             },
         );
     }
@@ -169,9 +169,9 @@ fn get_mounts(
             }
             let fstype = fields.next().unwrap();
             mounts.push(MountedFilesystem {
-                mountpoint: mountpoint,
+                mountpoint,
                 chroot: nsinfo.chroot_path.clone(),
-                fstype: fstype,
+                fstype,
             })
         } else if let Err(ref e) = line {
             info!(logger, "Skipping invalid line: {:?} ({})", line, e);
@@ -208,8 +208,8 @@ struct ShouldUnmountResult {
 impl ShouldUnmountResult {
     fn new(should_unmount: bool, lock_fd: Option<i32>) -> ShouldUnmountResult {
         ShouldUnmountResult {
-            should_unmount: should_unmount,
-            lock_fd: lock_fd,
+            should_unmount,
+            lock_fd,
         }
     }
 }
@@ -239,9 +239,7 @@ impl NamespaceSaver {
         nix::sched::setns(temp_ns_fd, nix::sched::CloneFlags::CLONE_NEWNS)?;
         nix::unistd::close(temp_ns_fd).expect("close should not fail");
 
-        Ok(NamespaceSaver {
-            orig_ns_fd: orig_ns_fd,
-        })
+        Ok(NamespaceSaver { orig_ns_fd })
     }
 }
 
