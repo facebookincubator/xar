@@ -6,23 +6,22 @@
 
 #[macro_use]
 extern crate clap;
-extern crate failure;
 #[macro_use]
 extern crate lazy_static;
-extern crate nix;
-extern crate regex;
+
 #[macro_use]
 extern crate slog;
-extern crate slog_term;
 
 use clap::{App, Arg};
+use failure;
+use nix;
 use regex::Regex;
 use slog::Drain;
+use slog_term;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-
 use std::os::linux::fs::MetadataExt;
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
