@@ -162,6 +162,17 @@ class XarUtilTest(xar_test_helpers.XarTestCase):
         with clone.open("r+t") as f:
             self.assertEqual(data, f.read())
 
+    def test_mksquashfs_options(self):
+        "Test XarFactory uses mksquashfs option in SquashfsOptions"
+        # Make a boring xar file.
+        srcdir = self.make_test_skeleton()
+
+        tf = tempfile.NamedTemporaryFile(delete=False)
+        xar = xar_util.XarFactory(srcdir, tf.name, xar_builder.BORING_SHEBANG)
+        xar.squashfs_options.mksquashfs = "bogus_mksquashfs_path"
+        with self.assertRaises(Exception):
+            xar.go()
+
     def make_test_skeleton(self):
         "Make a simple tree of test files"
         srcdir = tempfile.mkdtemp()
