@@ -42,8 +42,18 @@ def _align_offset(offset, align=4096):
     return (offset + mask) & (~mask)
 
 
+def find_mksquashfs():
+    # Prefer these paths, if none exist fall back to user's $PATH
+    paths = ["/usr/sbin/mksquashfs", "/sbin/mksquashfs"]
+    for path in paths:
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return "mksquashfs"
+
+
 class SquashfsOptions(object):
     def __init__(self):
+        self.mksquashfs = find_mksquashfs()
         self.compression_algorithm = "zstd"
         self.zstd_level = 16
         self.block_size = 256 * 1024
@@ -79,7 +89,7 @@ class XarFactory(object):
         # Create!
         sqopts = self.squashfs_options
         cmd = [
-            "mksquashfs",
+            sqopts.mksquashfs,
             self.dirname,
             tf.name,
             "-noappend",
