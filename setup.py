@@ -41,7 +41,7 @@ setup(
         # https://github.com/pypa/setuptools/commit/8c1f489f09434f42080397367b6491e75f64d838  # noqa: E501
         "setuptools>=34.1",
     ],
-    test_requires=["mock", "pytest"],
+    tests_require=["mock", "pytest"],
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Environment :: Console",
