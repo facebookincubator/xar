@@ -13,11 +13,8 @@ extern crate lazy_static;
 extern crate slog;
 
 use clap::{App, Arg};
-use failure;
-use nix;
 use regex::Regex;
 use slog::Drain;
-use slog_term;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
