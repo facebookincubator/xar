@@ -4,17 +4,10 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
-extern crate slog;
-
-use clap::{App, Arg};
+use clap::{value_t, App, Arg};
+use lazy_static::lazy_static;
 use regex::Regex;
-use slog::Drain;
+use slog::{debug, info, o, Drain};
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
@@ -53,8 +46,6 @@ fn flock_with_timeout(fd: RawFd, timeout_sec: u64) -> bool {
     false
 }
 
-#[cfg(test)]
-extern crate tempfile;
 #[cfg(test)]
 use std::os::unix::io::AsRawFd;
 
