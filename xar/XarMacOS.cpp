@@ -62,3 +62,17 @@ bool tools::xar::is_squashfs_mounted(const struct statfs& buf) {
 bool tools::xar::fuse_allows_visible_mounts(std::string fuse_conf_path) {
   return false;
 }
+
+static const char kDataMountPoint[] = "/System/Volumes/Data/mnt/xarfuse";
+static const char kRootMountPoint[] = "/mnt/xarfuse";
+
+std::vector<std::string> tools::xar::default_mount_roots() {
+  return {kDataMountPoint, kRootMountPoint, "/dev/shm"};
+}
+
+void tools::xar::no_mount_roots_help_message(std::ostream& out) {
+  out << "Unable to find suitabe 01777 mount root. "
+      << "Try: mkdir $DIR && chmod 01777 $DIR. For DIR="
+      << kDataMountPoint << " on MacOS 10.15 Catalina or later and DIR="
+      << kRootMountPoint << " on earlier MacOS versions.";
+}

@@ -112,5 +112,11 @@ void close_non_std_fds();
 
 // Check if squashfs is mounted.
 bool is_squashfs_mounted(const struct statfs& buf);
+
+// Returns the default mount points for XAR.
+std::vector<std::string> default_mount_roots();
+
+// Prints a help message for when no mount roots can be found.
+void no_mount_roots_help_message(std::ostream& out);
 } // namespace xar
 } // namespace tools

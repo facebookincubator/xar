@@ -69,3 +69,14 @@ bool tools::xar::fuse_allows_visible_mounts(std::string fuse_conf_path) {
 
   return false;
 }
+
+static const char kDefaultMountRoot[] = "/mnt/xarfuse";
+
+std::vector<std::string> tools::xar::default_mount_roots() {
+  return {kDefaultMountRoot, "/dev/shm"};
+}
+
+void tools::xar::no_mount_roots_help_message(std::ostream& out) {
+  out << "Unable to find suitabe 01777 mount root. Try: mkdir "
+      << kDefaultMountRoot << " && chmod 01777 " << kDefaultMountRoot;
+}

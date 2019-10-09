@@ -115,8 +115,6 @@ void check_file_sanity(
   }
 }
 
-const std::vector<std::string> kDefaultMountRoots{"/mnt/xarfuse", "/dev/shm"};
-
 std::string get_user_basedir(const std::string& basedir) {
   auto ret = basedir + "/uid-" + std::to_string(geteuid());
 
@@ -381,7 +379,7 @@ int main(int argc, char** argv) {
   } else {
     // Otherwise find the first proper mount root from our list of
     // defaults.
-    for (const auto& candidate : kDefaultMountRoots) {
+    for (const auto& candidate : tools::xar::default_mount_roots()) {
       struct stat st;
       if (stat(candidate.c_str(), &st) == 0 && (st.st_mode & 07777) == 01777) {
         mountroot = candidate;
@@ -389,9 +387,7 @@ int main(int argc, char** argv) {
       }
     }
     if (mountroot.empty()) {
-      FATAL << "Unable to find suitabe 01777 mount root. Try: mkdir "
-            << kDefaultMountRoots[0] << " && chmod 01777 "
-            << kDefaultMountRoots[0];
+      tools::xar::no_mount_roots_help_message(FATAL);
     }
   }
 

@@ -77,3 +77,17 @@ TEST(XarHelpers, FuseConfTest) {
   EXPECT_FALSE(fuse_allows_visible_mounts("/dev/null"));
   EXPECT_FALSE(fuse_allows_visible_mounts("/dev/null/not/a/valid/path"));
 }
+
+TEST(XarHelpers, DefaultMountRootsTest) {
+  const auto mount_roots = default_mount_roots();
+  EXPECT_FALSE(mount_roots.empty());
+  const std::string expected = "/mnt/xarfuse";
+  bool found_expected = false;
+  for (const auto& mount_root : mount_roots) {
+    if (mount_root == expected) {
+      found_expected = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(found_expected);
+}
