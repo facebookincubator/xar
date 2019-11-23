@@ -5,8 +5,8 @@ authors = ["chip <chip@fb.com>"]
 edition = "2018"
 
 [dependencies]
+anyhow = "1.0"
 clap = "2.31"
-failure = "0.1.*"
 lazy_static = "1.0.*"
 nix = "0.10.*"
 regex = "0.2.*"

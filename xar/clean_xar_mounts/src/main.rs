@@ -4,6 +4,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+use anyhow::Result;
 use clap::{value_t, App, Arg};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -19,8 +20,6 @@ use std::process::Command;
 use std::str::FromStr;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-
-type Result<T> = ::std::result::Result<T, failure::Error>;
 
 // jemalloc can be configured with a static string.  We have to
 // null-terminate it, but this works fine from Rust.
@@ -564,7 +563,7 @@ fn main() {
         let stderr = &mut ::std::io::stderr();
         let errmsg = "Error writing to stderr";
 
-        writeln!(stderr, "{}, {}", e.as_fail(), e.backtrace()).expect(errmsg);
+        writeln!(stderr, "{}, {}", e, e.backtrace()).expect(errmsg);
         ::std::process::exit(1);
     }
 }
