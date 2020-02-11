@@ -19,15 +19,15 @@ import sys
 import tempfile
 import time
 import uuid
+import grp
 
 
 logger = logging.getLogger("xar")
 
-if "centos" in platform.platform().lower():
-    NOGROUP = "nobody"
-else:
-    # Works for debian and darwin for sure
-    NOGROUP = "nogroup"
+try:
+    NOGROUP = grp.getgrnam("nogroup").gr_name
+except KeyError:
+    NOGROUP = grp.getgrnam("nobody").gr_name
 
 
 def make_uuid():
