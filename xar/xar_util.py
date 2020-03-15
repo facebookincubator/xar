@@ -10,7 +10,6 @@ import contextlib
 import errno
 import logging
 import os
-import platform
 import shutil
 import stat
 import struct
@@ -23,7 +22,7 @@ import uuid
 
 logger = logging.getLogger("xar")
 
-if "centos" in platform.platform().lower():
+if os.path.exists("/etc/centos-release"):
     NOGROUP = "nobody"
 else:
     # Works for debian and darwin for sure
