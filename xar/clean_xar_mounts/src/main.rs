@@ -6,6 +6,7 @@
 
 use anyhow::Result;
 use clap::{value_t, App, Arg};
+use filetime;
 use lazy_static::lazy_static;
 use regex::Regex;
 use slog::{debug, info, o, Drain};
@@ -13,6 +14,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::option::Option;
 use std::os::linux::fs::MetadataExt;
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
@@ -289,9 +291,13 @@ fn get_lockfile_test() {
         ],
     );
 
+    // Confirm parsing a non-xar directory returns empty vec
+    let mf = make_mf("/var/releases/continuous_www_scripts9999");
+    assert!(get_lockfile_path(&logger, &mf).is_empty());
+
     // Confirm a random path doesn't parse
     let mf = make_mf("/dev/null");
-    assert!(get_lockfile_path(&logger, &mf).len() == 0);
+    assert!(get_lockfile_path(&logger, &mf).is_empty());
 }
 
 fn get_lockfile_path(logger: &slog::Logger, mount: &MountedFilesystem) -> Vec<PathBuf> {
@@ -352,6 +358,93 @@ fn get_lockfile_path(logger: &slog::Logger, mount: &MountedFilesystem) -> Vec<Pa
     new_lockfile.set_extension(PathBuf::from(mount_suffix).file_name().unwrap());
 
     vec![new_lockfile, old_lockfile]
+}
+
+#[test]
+fn should_unmount_test() {
+    let tmpdir = tempfile::tempdir().unwrap();
+    let logger = setup_logger(slog::Level::Debug);
+
+    // Helper to make a MountedFilesystem object.
+    let make_mf = |mountpoint: &str, maybe_mtime: Option<SystemTime>| {
+        //  The default timeout is expected to be 15 minutes (15 * 60).
+        let mtime = maybe_mtime
+            .unwrap_or(SystemTime::now() - Duration::from_secs(20 * 60))
+            .duration_since(UNIX_EPOCH)
+            .unwrap();
+        let mnt = MountedFilesystem {
+            mountpoint: String::from(mountpoint),
+            chroot: PathBuf::from(tmpdir.path()),
+            fstype: String::from("fuse.squashfuse_ll"),
+        };
+        let locks = get_lockfile_path(&logger, &mnt);
+        for lock in locks.iter() {
+            let parent_dir = lock.parent().unwrap();
+            debug!(&logger, "mkdir: {}", parent_dir.to_str().unwrap());
+            fs::create_dir_all(parent_dir).unwrap();
+
+            debug!(&logger, "touch: {}", lock.to_str().unwrap());
+            File::create(lock).unwrap();
+
+            // Set some really old access and modification time.
+            let ftime = filetime::FileTime::from_unix_time(mtime.as_secs() as i64, 0);
+            filetime::set_file_times(lock, ftime, ftime).unwrap();
+        }
+        mnt
+    };
+
+    // Confirm parsing a seed'd directory with dashes works
+    let mf = make_mf("/mnt/xarfuse/uid-0/8f583eae-ns-4026531840", None);
+    assert_eq!(
+        should_unmount(&logger, &mf, 1).unwrap().should_unmount,
+        true,
+    );
+
+    // Confirm parsing a non-seed'd /dev/shm directory works
+    let mf = make_mf("/dev/shm/uid-0/8f583eae-ns-4026531840", None);
+    assert_eq!(
+        should_unmount(&logger, &mf, 1).unwrap().should_unmount,
+        true,
+    );
+
+    // Confirm that a directory too new to unmount is not unmounted.
+    let now = std::time::SystemTime::now();
+    let mf = make_mf("/dev/shm/uid-0/8f583eae-ns-4026531840", Some(now));
+    assert_eq!(
+        should_unmount(&logger, &mf, 1).unwrap().should_unmount,
+        false,
+    );
+
+    // Confirm parsing a seed'd directory works
+    let mf = make_mf("/mnt/xarfuse/uid-0/8f583eae-seed-test-ns-4026531840", None);
+    assert_eq!(
+        should_unmount(&logger, &mf, 1).unwrap().should_unmount,
+        true,
+    );
+
+    // Confirm parsing a seed'd directory with dashes works
+    let mf = make_mf(
+        "/mnt/xarfuse/uid-0/8f583eae-seed-test-foo-bar-ns-4026531840",
+        None,
+    );
+    assert_eq!(
+        should_unmount(&logger, &mf, 1).unwrap().should_unmount,
+        true,
+    );
+
+    // Confirm parsing a non-xar directory returns empty vec
+    let mf = make_mf("/var/releases/continuous_www_scripts9999", None);
+    assert_eq!(
+        should_unmount(&logger, &mf, 1).unwrap().should_unmount,
+        false,
+    );
+
+    // Confirm a random path doesn't parse
+    let mf = make_mf("/dev/null", None);
+    assert_eq!(
+        should_unmount(&logger, &mf, 1).unwrap().should_unmount,
+        false,
+    );
 }
 
 /// Check whether a mount point should be unmounted.  We only consider
@@ -416,7 +509,7 @@ fn should_unmount(
                 logger,
                 "Unable to find lock file for {}, skipping...", mount.mountpoint
             );
-            return Ok(ShouldUnmountResult::new(true, None));
+            return Ok(ShouldUnmountResult::new(false, None));
         }
     };
 
