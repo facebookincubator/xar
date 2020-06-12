@@ -6,7 +6,6 @@
 
 use anyhow::Result;
 use clap::{value_t, App, Arg};
-use filetime;
 use lazy_static::lazy_static;
 use regex::Regex;
 use slog::{debug, info, o, Drain};
