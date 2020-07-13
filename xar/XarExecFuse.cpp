@@ -418,6 +418,8 @@ int main(int argc, char** argv) {
   if (env_seed && *env_seed && strchr(env_seed, '/') == nullptr) {
     mount_directory += "-seed-";
     mount_directory += env_seed;
+  } else if (stat("/proc/self/ns/pid", &st) == 0) {
+    mount_directory += "-seed-nspid" + std::to_string(st.st_ino);
   }
 
   // Try to determine our mount namespace id (via the inode on
