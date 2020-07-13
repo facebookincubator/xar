@@ -218,7 +218,7 @@ bool is_squashfuse_mounted(const std::string& path, bool try_fix) {
     if (!try_fix) {
       return false;
     }
-    if (errno == ENOTCONN) {
+    if (errno == ENOTCONN || errno == ECONNABORTED) {
       std::string cmd = tools::xar::UNMOUNT_CMD + path;
       if (system(cmd.c_str()) != 0) {
         FATAL << "unable to umount broken mount; try 'fusermount -u " << path
