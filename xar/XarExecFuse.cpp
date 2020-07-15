@@ -226,7 +226,7 @@ bool is_squashfuse_mounted(const std::string& path, bool try_fix) {
       }
       return false;
     }
-    FATAL << "stafs failed for " << path << ": " << strerror(errno);
+    FATAL << "statfs failed for " << path << ": " << strerror(errno);
   }
 
   return tools::xar::is_squashfs_mounted(statfs_buf);
@@ -455,9 +455,40 @@ int main(int argc, char** argv) {
     FATAL << "mkdir failed:" << strerror(errno);
   }
 
+  // Construct our exec path; if it already exists, we're done and can
+  // simply execute it.
+  const std::string exec_path = mount_path + "/" + execpath;
+  if (debugging) {
+    cerr << "exec: " << exec_path << " as " << getuid() << " " << getgid()
+         << endl;
+  }
+
+  // Hold a file descriptor open to one of the files in the XAR; this
+  // will prevent unmounting as we exec the bootstrap and it execs
+  // anything.  Intentionally not O_CLOEXEC.  This is necessary
+  // because the exec call typically targets a shell script inside the
+  // XAR and so the script won't remain open while the exec happens --
+  // the kernel will examine it, run a bash process, and that will
+  // open the shell script.  Between the parsing and bash opening it,
+  // the mount point could disappear.  Also, that script itself often
+  // exec's the python interpreter living on local disk, which will
+  // open a py file in the XAR... again a brief moment where the
+  // unmount can occur.  We open now, very early to signal to
+  // squashfuse_ll before the statfs call, but will try to re-open
+  // later if this one fails.  So ignore the return code for now.
+  int bootstrap_fd = open(exec_path.c_str(), O_RDONLY);
+
   bool newMount = false;
   // TODO(chip): also mount DEPENDENCIES
   if (!is_squashfuse_mounted(mount_path, true)) {
+    // This should never happen.  And yet, just in case, let's make
+    // sure we will hold the right file open.
+    if (bootstrap_fd != -1) {
+      // TODO: one day we should find a way to log or bump a key; this
+      // would be a good case.
+      close(bootstrap_fd);
+      bootstrap_fd = -1;
+    }
     // Check mount_path sanity before mounting; once mounted, though,
     // the permissions may change, so we have to do the check after we
     // grab the lock but know we need to perform a mount.
@@ -524,26 +555,11 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  // Construct our exec path; if it already exists, we're done and can
-  // simply execute it.
-  const std::string exec_path = mount_path + "/" + execpath;
-  if (debugging) {
-    cerr << "exec: " << exec_path << " as " << getuid() << " " << getgid()
-         << endl;
+  // Retry opening our fd if we failed before.
+  if (bootstrap_fd == -1) {
+    bootstrap_fd = open(exec_path.c_str(), O_RDONLY);
   }
-
-  // Hold a file descriptor open to one of the files in the XAR; this
-  // will prevent unmounting as we exec the bootstrap and it execs
-  // anything.  Intentionally not O_CLOEXEC.  This is necessary
-  // because the exec call typically targets a shell script inside the
-  // XAR and so the script won't remain open while the exec happens --
-  // the kernel will examine it, run a bash process, and that will
-  // open the shell script.  Between the parsing and bash opening it,
-  // the mount point could disappear.  Also, that script itself often
-  // exec's the python interpreter living on local disk, which will
-  // open a py file in the XAR... again a brief moment where the
-  // unmount can occur.
-  int bootstrap_fd = open(exec_path.c_str(), O_RDONLY);
+  // Still no success?  Bail.
   if (bootstrap_fd == -1) {
     FATAL << "Unable to open " << exec_path << ": " << strerror(errno);
   }
