@@ -16,6 +16,7 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // Inspired by glog's CHECK/PCHECK, these macros don't rely on glog
@@ -118,5 +119,21 @@ std::vector<std::string> default_mount_roots();
 
 // Prints a help message for when no mount roots can be found.
 void no_mount_roots_help_message(std::ostream& out);
+
+namespace {
+// Set to true for verbose output when testing.
+const bool debugging = false;
+
+// Headers we specifically look for.
+const char* kOffsetName = "OFFSET";
+const char* kXarexecTarget = "XAREXEC_TARGET";
+const char* kUuidName = "UUID";
+const char* kMountRoot = "MOUNT_ROOT";
+}
+
+// Extract the UUID, OFFSET, XAREXEC_TARGET, and other parameters from
+// the XAR header.
+std::unordered_map<std::string, std::string> read_xar_header(
+    const char* filename);
 } // namespace xar
 } // namespace tools

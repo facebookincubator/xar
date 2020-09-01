@@ -63,12 +63,6 @@ constexpr bool kIsDarwin = true;
 constexpr bool kIsDarwin = false;
 #endif
 
-// Headers we specifically look for.
-const char* kOffsetName = "OFFSET";
-const char* kXarexecTarget = "XAREXEC_TARGET";
-const char* kUuidName = "UUID";
-const char* kMountRoot = "MOUNT_ROOT";
-
 // Default timeout to pass to squashfuse_ll.  14.5 minutes;
 // clean_xar_mounts uses 15 minutes
 const size_t kSquashFuseDefaultTimeout = 870;
@@ -79,9 +73,6 @@ const char* kSquashFuseTimeoutOverride =
 using std::cerr;
 using std::cout;
 using std::endl;
-
-// Set to true for verbose output when testing.
-bool debugging = false;
 
 // For check_file_sanity -- do we expect a file, or a directory?
 enum class Expectation { Directory = 1, File = 2 };
@@ -143,73 +134,6 @@ int grab_lock(const std::string& lockfile) {
   }
 
   return fd;
-}
-
-// Extract the UUID, OFFSET, XAREXEC_TARGET, and other parameters from
-// the XAR header.
-const size_t kDefaultHeaderSize = 4096;
-std::unordered_map<std::string, std::string> read_xar_header(
-    const char* filename) {
-  int fd = open(filename, O_RDONLY | O_CLOEXEC);
-  if (fd < 0) {
-    FATAL << "open " << filename << ": " << strerror(errno);
-  }
-
-  std::string buf;
-  buf.resize(kDefaultHeaderSize);
-  ssize_t res = read(fd, &buf[0], buf.size());
-  if (res < 0) {
-    FATAL << "read header from: " << filename << ": " << strerror(errno);
-  }
-  if (res != buf.size()) {
-    FATAL << "Short read of header of " << filename;
-  }
-  res = close(fd);
-  if (res < 0) {
-    FATAL << "close " << filename << ": " << strerror(errno);
-  }
-
-  std::unordered_map<std::string, std::string> ret;
-  auto lines = tools::xar::split('\n', buf);
-  for (const auto& line : lines) {
-    if (line == "#xar_stop") {
-      break;
-    }
-    if (line.empty() || line[0] == '#') {
-      continue;
-    }
-
-    auto name_value = tools::xar::split('=', line);
-    if (name_value.size() != 2) {
-      FATAL << "malformed header line: " << line;
-    }
-    std::string name = name_value[0];
-    std::string value = name_value[1];
-
-    if (name.empty() || value.size() < 2 || value.front() != '"' ||
-        value.back() != '"') {
-      FATAL << "invalid line in xar header: " << line;
-    }
-    // skip quotes around value
-    ret[name] = value.substr(1, value.size() - 2);
-  }
-
-  if (ret.find(kOffsetName) == ret.end() ||
-      ret[kOffsetName] != std::to_string(kDefaultHeaderSize)) {
-    FATAL << "TODO(chip): support headers other than he default";
-  }
-
-  if (ret.find(kUuidName) == ret.end()) {
-    FATAL << "No UUID in XAR header";
-  }
-
-  if (debugging) {
-    for (const auto& p : ret) {
-      cerr << "header " << p.first << "=" << p.second << endl;
-    }
-  }
-
-  return ret;
 }
 
 bool is_squashfuse_mounted(const std::string& path, bool try_fix) {
@@ -343,21 +267,21 @@ int main(int argc, char** argv) {
 
   // Extract our required fields from the XAR header.  XAREXEC_TARGET
   // is required unless the -m flag was used.
-  auto header = read_xar_header(xar_path);
+  auto header = tools::xar::read_xar_header(xar_path);
   size_t offset;
   try {
     size_t end;
-    offset = std::stoull(header[kOffsetName], &end);
-    if (end != header[kOffsetName].size()) {
+    offset = std::stoull(header[tools::xar::kOffsetName], &end);
+    if (end != header[tools::xar::kOffsetName].size()) {
       throw std::invalid_argument("Offset not entirely an integer");
     }
   } catch (const std::exception& ex) {
-    cerr << "Header offset is non-integral: " << header[kOffsetName] << endl;
+    cerr << "Header offset is non-integral: " << header[tools::xar::kOffsetName] << endl;
     FATAL << "Exact error: " << ex.what();
   }
-  std::string uuid = header[kUuidName];
+  std::string uuid = header[tools::xar::kUuidName];
   std::string execpath;
-  auto it = header.find(kXarexecTarget);
+  auto it = header.find(tools::xar::kXarexecTarget);
   if (it != header.end()) {
     execpath = it->second;
   }
@@ -373,7 +297,7 @@ int main(int argc, char** argv) {
 
   // If provided, use a non-default mount root from the header.
   std::string mountroot;
-  it = header.find(kMountRoot);
+  it = header.find(tools::xar::kMountRoot);
   if (it != header.end()) {
     mountroot = it->second;
   } else {
@@ -458,7 +382,7 @@ int main(int argc, char** argv) {
   // Construct our exec path; if it already exists, we're done and can
   // simply execute it.
   const std::string exec_path = mount_path + "/" + execpath;
-  if (debugging) {
+  if (tools::xar::debugging) {
     cerr << "exec: " << exec_path << " as " << getuid() << " " << getgid()
          << endl;
   }
@@ -586,7 +510,7 @@ int main(int argc, char** argv) {
   }
   newArgs[argc + 4] = nullptr;
   for (int i = 0; newArgs[i]; ++i) {
-    if (debugging) {
+    if (tools::xar::debugging) {
       cerr << "  exec arg: " << newArgs[i] << endl;
     }
   }
