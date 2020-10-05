@@ -94,7 +94,9 @@ class XarFile(object):
 
     def mount(self, xarexec):
         logger.info("Mounting %s with %s" % (self.filename, xarexec))
-        proc = subprocess.Popen([xarexec.split(), "-m", self.filename], stdout=subprocess.PIPE)
+        proc = subprocess.Popen(
+            [xarexec.split(), "-m", self.filename], stdout=subprocess.PIPE
+        )
         stdout, _ = proc.communicate()
         if proc.returncode != 0:
             logger.fatal("Mount of %s failed, see stderr for details" % self.filename)
