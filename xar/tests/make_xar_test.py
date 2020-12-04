@@ -48,7 +48,7 @@ class MakeXarTest(unittest.TestCase):
 
     def test_make_python_xar_from_directory(self):
         with self.make_test_directory() as (xar, dir):
-            args = ["--output", xar, "--python", dir]
+            args = ["--output", xar, "--python", dir, "--python-interpreter", "python3"]
             make_xar.main(args)
             if self.xarexec_exists():
                 self.assertEqual(self.check_xar(xar), b"python")
@@ -63,7 +63,14 @@ class MakeXarTest(unittest.TestCase):
         with self.make_test_directory() as (xar, dir):
             with tempfile.NamedTemporaryFile("w") as zip:
                 zipapp.create_archive(dir, zip.name)
-                args = ["--output", xar, "--python", zip.name]
+                args = [
+                    "--output",
+                    xar,
+                    "--python",
+                    zip.name,
+                    "--python-interpreter",
+                    "python3",
+                ]
                 make_xar.main(args)
                 if self.xarexec_exists():
                     self.assertEqual(self.check_xar(xar), b"python")
