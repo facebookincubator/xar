@@ -8,6 +8,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import contextlib
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -48,7 +49,14 @@ class MakeXarTest(unittest.TestCase):
 
     def test_make_python_xar_from_directory(self):
         with self.make_test_directory() as (xar, dir):
-            args = ["--output", xar, "--python", dir, "--python-interpreter", "python3"]
+            args = [
+                "--output",
+                xar,
+                "--python",
+                dir,
+                "--python-interpreter",
+                sys.executable,
+            ]
             make_xar.main(args)
             if self.xarexec_exists():
                 self.assertEqual(self.check_xar(xar), b"python")
@@ -69,7 +77,7 @@ class MakeXarTest(unittest.TestCase):
                     "--python",
                     zip.name,
                     "--python-interpreter",
-                    "python3",
+                    sys.executable,
                 ]
                 make_xar.main(args)
                 if self.xarexec_exists():
