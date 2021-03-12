@@ -10,32 +10,46 @@ namespace tools {
 namespace xar {
 namespace {
 const size_t kDefaultHeaderSize = 4096;
-}
 
-std::unordered_map<std::string, std::string> read_xar_header(
-    const char* filename) {
+std::optional<std::string> read_file_prefix(const char *filename,
+                                            size_t max_bytes) {
   int fd = open(filename, O_RDONLY | O_CLOEXEC);
   if (fd < 0) {
-    FATAL << "open " << filename << ": " << strerror(errno);
+    return std::nullopt;
   }
 
   std::string buf;
-  buf.resize(kDefaultHeaderSize);
+  buf.resize(max_bytes);
   ssize_t res = read(fd, &buf[0], buf.size());
   if (res < 0) {
-    FATAL << "read header from: " << filename << ": " << strerror(errno);
+    return std::nullopt;
   }
-  if (res != buf.size()) {
-    FATAL << "Short read of header of " << filename;
-  }
+  buf.resize(res);
   res = close(fd);
   if (res < 0) {
-    FATAL << "close " << filename << ": " << strerror(errno);
+    return std::nullopt;
+  }
+
+  return buf;
+}
+
+} // namespace
+
+std::unordered_map<std::string, std::string>
+read_xar_header(const char *filename) {
+  const auto maybe_header = read_file_prefix(filename, kDefaultHeaderSize);
+  if (!maybe_header) {
+    FATAL << "Unable to open or read XAR header from " << filename;
+  }
+  const auto header = *maybe_header;
+  if (header.size() != kDefaultHeaderSize) {
+    FATAL << "Short read of header of " << filename << ", " << header.size()
+          << " vs expected " << kDefaultHeaderSize;
   }
 
   std::unordered_map<std::string, std::string> ret;
-  auto lines = tools::xar::split('\n', buf);
-  for (const auto& line : lines) {
+  auto lines = tools::xar::split('\n', header);
+  for (const auto &line : lines) {
     if (line == "#xar_stop") {
       break;
     }
@@ -74,6 +88,41 @@ std::unordered_map<std::string, std::string> read_xar_header(
   }
 
   return ret;
+}
+
+std::optional<ino_t> read_sysfs_cgroup_inode(const char *filename) {
+  const auto maybe_contents = read_file_prefix(filename, 4096);
+  if (!maybe_contents) {
+    return std::nullopt;
+  }
+  const auto contents = *maybe_contents;
+  if (contents.size() == 4096) {
+    return std::nullopt;
+  }
+
+  // File contents are a colon-separated triplet.  We want the last
+  // field, and to toss out the trailing newline.
+  auto components = tools::xar::split(':', contents);
+  if (components.size() < 3) {
+    return std::nullopt;
+  }
+  auto newline_pos = components[2].find('\n');
+  if (newline_pos != std::string::npos) {
+    components[2].erase(newline_pos);
+  }
+
+  // /sys/fs/cgroup is the typical mount point for the cgroup2
+  // filesystem, but it is not guaranteed.  In some FB environments
+  // we've historically used /cgroup2 instead.
+  for (auto &candidate : {"/sys/fs/cgroup", "/cgroup2"}) {
+    auto path = std::string(candidate) + "/" + components[2];
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0) {
+      return st.st_ino;
+    }
+  }
+
+  return std::nullopt;
 }
 
 namespace detail {

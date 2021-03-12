@@ -344,6 +344,21 @@ int main(int argc, char** argv) {
     mount_directory += env_seed;
   } else if (stat("/proc/self/ns/pid", &st) == 0) {
     mount_directory += "-seed-nspid" + std::to_string(st.st_ino);
+
+    // Sometimes we are in the same namespace but different cgroups
+    // (e.g. systemd using cgroups to control process lifetime but not
+    // putting processes into mount namespaces).  This can cause
+    // cgroup termination to destroy a shared squashfuse_ll process.
+    //
+    // Use the inode of the cgroup we are running in.  Note this is
+    // best effort in kernel 5.2 as inode numbers can be reused
+    // sequentially (but not concurrently); kernel 5.6 makes this
+    // truly unique across boots.
+    auto maybe_cgroup_inode =
+      tools::xar::read_sysfs_cgroup_inode("/proc/self/cgroup");
+    if (maybe_cgroup_inode) {
+      mount_directory += "_cgpid" + std::to_string(*maybe_cgroup_inode);
+    }
   }
 
   // Try to determine our mount namespace id (via the inode on

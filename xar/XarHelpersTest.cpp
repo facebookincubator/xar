@@ -91,3 +91,12 @@ TEST(XarHelpers, DefaultMountRootsTest) {
   }
   EXPECT_TRUE(found_expected);
 }
+
+TEST(XarHelpers, FindCgroupInodeTest) {
+  const auto present_cgroup_inode =
+      tools::xar::read_sysfs_cgroup_inode("/proc/self/cgroup");
+  EXPECT_TRUE(present_cgroup_inode);
+  const auto missing_cgroup_inode =
+      tools::xar::read_sysfs_cgroup_inode("/doesnotexistlalalala");
+  EXPECT_FALSE(missing_cgroup_inode);
+}
