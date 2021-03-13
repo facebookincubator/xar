@@ -48,4 +48,5 @@ if sys.platform == "linux":
     for file in ("libtools_xar_%s-cxx-build-info-lib.so" % binary_name,):
         assert str(xar_mountpoint / file) in maps, "%s not preloaded" % file
 
+print(f"ARGV_0={sys.argv[0]}")
 print("ok")
