@@ -82,12 +82,18 @@ size_t delimSize(const std::string& s) {
 }
 } // namespace
 
-// A slow, simple split function.
+// A slow, simple split function.  nsplits behaves like Python's split
+// function.
 template <typename DelimType>
-std::vector<std::string> split(const DelimType& delim, std::string s) {
+std::vector<std::string> split(const DelimType& delim, std::string s, const ssize_t nsplits = -1) {
   std::vector<std::string> ret;
 
   while (true) {
+    if (nsplits > -1 && ret.size() >= nsplits) {
+      ret.push_back(s);
+      break;
+    }
+
     auto next = s.find(delim);
     if (next == std::string::npos) {
       ret.push_back(s);

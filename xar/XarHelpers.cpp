@@ -57,7 +57,7 @@ read_xar_header(const char *filename) {
       continue;
     }
 
-    auto name_value = tools::xar::split('=', line);
+    auto name_value = tools::xar::split('=', line, 1);
     if (name_value.size() != 2) {
       FATAL << "malformed header line: " << line;
     }

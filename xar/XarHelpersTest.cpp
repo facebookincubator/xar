@@ -66,6 +66,37 @@ TEST(XarHelpers, SplitTest) {
   EXPECT_EQ(parts[3], "");
 }
 
+TEST(XarHelpers, PartialSplitTest) {
+  vector<string> parts;
+
+  parts = split(",", "a,b,c", 0);
+  EXPECT_EQ(parts.size(), 1);
+  EXPECT_EQ(parts[0], "a,b,c");
+
+  parts = split(",", "a,b,c", 1);
+  EXPECT_EQ(parts.size(), 2);
+  EXPECT_EQ(parts[0], "a");
+  EXPECT_EQ(parts[1], "b,c");
+
+  parts = split(",", "a,b,c", 2);
+  EXPECT_EQ(parts.size(), 3);
+  EXPECT_EQ(parts[0], "a");
+  EXPECT_EQ(parts[1], "b");
+  EXPECT_EQ(parts[2], "c");
+
+  parts = split(",", "a,b,c", 99);
+  EXPECT_EQ(parts.size(), 3);
+  EXPECT_EQ(parts[0], "a");
+  EXPECT_EQ(parts[1], "b");
+  EXPECT_EQ(parts[2], "c");
+
+  // Test case for XAR headers
+  parts = split("=", "XAR_HEADER=\"a=b=c\"", 1);
+  EXPECT_EQ(parts.size(), 2);
+  EXPECT_EQ(parts[0], "XAR_HEADER");
+  EXPECT_EQ(parts[1], "\"a=b=c\"");
+}
+
 TEST(XarHelpers, FuseConfTest) {
   // Test two normal-ish fuse.conf examples.
   EXPECT_TRUE(
