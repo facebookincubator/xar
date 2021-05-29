@@ -456,7 +456,7 @@ fn should_unmount(
 ) -> Result<ShouldUnmountResult> {
     // Only consider certain mount types.
     match mount.fstype.as_str() {
-        "fuse.squashfuse" | "fuse.squashfuse_ll" | "osxfusefs" | "osxfuse" => {}
+        "fuse.squashfuse" | "fuse.squashfuse_ll" | "osxfusefs" | "osxfuse" | "macfuse" => {}
         _ => return Ok(ShouldUnmountResult::new(false, None)),
     }
     info!(
