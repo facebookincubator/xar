@@ -4,7 +4,7 @@ project(xar)
 
 # Use modern C++ for everything, instruct clang (if used) to generate the
 # compile_commands database.
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED on)
 set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 
