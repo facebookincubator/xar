@@ -135,7 +135,7 @@ def flock_with_timeout(lock_fd, lock_type, timeout_sec):
 # (should_unmount, lock_fd) of whether to unmount and a descriptor
 # holding a flock (which should be closed after the unmount).
 def should_unmount(devname, mountpath, fstype, timeout):
-    if fstype not in ("fuse.squashfuse", "fuse.squashfuse_ll", "osxfusefs", "osxfuse"):
+    if fstype not in ("fuse.squashfuse", "fuse.squashfuse_ll", "osxfusefs", "osxfuse", "macfuse"):
         return (False, None)
 
     logging.debug("Considering %s (%s)..." % (mountpath, fstype))

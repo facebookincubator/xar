@@ -56,7 +56,7 @@ void tools::xar::close_non_std_fds() {
 // change a lot.
 bool tools::xar::is_squashfs_mounted(const struct statfs& buf) {
   auto fsname = std::string{buf.f_fstypename};
-  return fsname == "osxfuse" || fsname == "osxfusefs";
+  return fsname == "osxfuse" || fsname == "osxfusefs" || fsname == "macfuse";
 }
 
 bool tools::xar::fuse_allows_visible_mounts(std::string fuse_conf_path) {
