@@ -414,6 +414,17 @@ fn should_unmount_test() {
         false,
     );
 
+    // Confirm that a directory mounted 'in the future' is not unmounted.
+    let now = std::time::SystemTime::now();
+    let mf = make_mf(
+        "/dev/shm/uid-0/8f583eae-ns-4026531840",
+        Some(now + Duration::from_secs(60)),
+    );
+    assert_eq!(
+        should_unmount(&logger, &mf, 1).unwrap().should_unmount,
+        false,
+    );
+
     // Confirm parsing a seed'd directory works
     let mf = make_mf("/mnt/xarfuse/uid-0/8f583eae-seed-test-ns-4026531840", None);
     assert_eq!(
@@ -523,14 +534,13 @@ fn should_unmount(
     }
     let stat = nix::sys::stat::fstat(lock_fd)?;
     let epoch_now = SystemTime::now().duration_since(UNIX_EPOCH)?;
-    let age = epoch_now - Duration::new(stat.st_mtime as u64, stat.st_mtime_nsec as u32);
-    let timeout = Duration::from_secs(timeout as u64 * 60);
+    let age = epoch_now.as_secs_f64()
+        - Duration::new(stat.st_mtime as u64, stat.st_mtime_nsec as u32).as_secs_f64();
+    let timeout = timeout as f64 * 60.0;
     if age <= timeout {
         info!(
             logger,
-            "Skipping unmount of {}, too recent ({:.2}s)",
-            mount.mountpoint,
-            age.as_secs() as f64 + age.subsec_nanos() as f64 / 1000000000.0
+            "Skipping unmount of {}, too recent ({:.2}s)", mount.mountpoint, age
         );
         return Ok(ShouldUnmountResult::new(false, lock_opt));
     }
