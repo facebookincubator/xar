@@ -72,7 +72,7 @@ std::vector<std::string> tools::xar::default_mount_roots() {
 
 void tools::xar::no_mount_roots_help_message(std::ostream& out) {
   out << "Unable to find suitabe 01777 mount root. "
-      << "Try: mkdir $DIR && chmod 01777 $DIR. For DIR="
-      << kDataMountPoint << " on MacOS 10.15 Catalina or later and DIR="
-      << kRootMountPoint << " on earlier MacOS versions.";
+      << "Try: mkdir $DIR && chmod 01777 $DIR. For DIR=" << kDataMountPoint
+      << " on MacOS 10.15 Catalina or later and DIR=" << kRootMountPoint
+      << " on earlier MacOS versions.";
 }

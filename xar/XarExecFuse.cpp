@@ -67,8 +67,7 @@ constexpr bool kIsDarwin = false;
 // clean_xar_mounts uses 15 minutes
 const size_t kSquashFuseDefaultTimeout = 870;
 const char* kSquashFuseExecutable = "squashfuse_ll";
-const char* kSquashFuseTimeoutOverride =
-    "/var/lib/xarexec_timeout_override";
+const char* kSquashFuseTimeoutOverride = "/var/lib/xarexec_timeout_override";
 
 using std::cerr;
 using std::cout;
@@ -206,10 +205,10 @@ size_t get_squashfuse_timeout() {
 
   std::ifstream overrideFile(kSquashFuseTimeoutOverride);
   if (overrideFile.is_open()) {
-      unsigned to;
-      if (overrideFile >> to) {
-          return to;
-      }
+    unsigned to;
+    if (overrideFile >> to) {
+      return to;
+    }
   }
   return kSquashFuseDefaultTimeout;
 }
@@ -276,7 +275,8 @@ int main(int argc, char** argv) {
       throw std::invalid_argument("Offset not entirely an integer");
     }
   } catch (const std::exception& ex) {
-    cerr << "Header offset is non-integral: " << header[tools::xar::kOffsetName] << endl;
+    cerr << "Header offset is non-integral: " << header[tools::xar::kOffsetName]
+         << endl;
     FATAL << "Exact error: " << ex.what();
   }
   std::string uuid = header[tools::xar::kUuidName];
@@ -355,7 +355,7 @@ int main(int argc, char** argv) {
     // sequentially (but not concurrently); kernel 5.6 makes this
     // truly unique across boots.
     auto maybe_cgroup_inode =
-      tools::xar::read_sysfs_cgroup_inode("/proc/self/cgroup");
+        tools::xar::read_sysfs_cgroup_inode("/proc/self/cgroup");
     if (maybe_cgroup_inode) {
       mount_directory += "_cgpid" + std::to_string(*maybe_cgroup_inode);
     }
@@ -531,7 +531,7 @@ int main(int argc, char** argv) {
   }
 
   if (newMount) {
-      setenv("XARFUSE_NEW_MOUNT", "1", 1);
+    setenv("XARFUSE_NEW_MOUNT", "1", 1);
   }
   umask(old_umask);
   if (execv(newArgs[0], newArgs) != 0) {

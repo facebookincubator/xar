@@ -11,8 +11,9 @@ namespace xar {
 namespace {
 const size_t kDefaultHeaderSize = 4096;
 
-std::optional<std::string> read_file_prefix(const char *filename,
-                                            size_t max_bytes) {
+std::optional<std::string> read_file_prefix(
+    const char* filename,
+    size_t max_bytes) {
   int fd = open(filename, O_RDONLY | O_CLOEXEC);
   if (fd < 0) {
     return std::nullopt;
@@ -35,8 +36,8 @@ std::optional<std::string> read_file_prefix(const char *filename,
 
 } // namespace
 
-std::unordered_map<std::string, std::string>
-read_xar_header(const char *filename) {
+std::unordered_map<std::string, std::string> read_xar_header(
+    const char* filename) {
   const auto maybe_header = read_file_prefix(filename, kDefaultHeaderSize);
   if (!maybe_header) {
     FATAL << "Unable to open or read XAR header from " << filename;
@@ -49,7 +50,7 @@ read_xar_header(const char *filename) {
 
   std::unordered_map<std::string, std::string> ret;
   auto lines = tools::xar::split('\n', header);
-  for (const auto &line : lines) {
+  for (const auto& line : lines) {
     if (line == "#xar_stop") {
       break;
     }
@@ -90,7 +91,7 @@ read_xar_header(const char *filename) {
   return ret;
 }
 
-std::optional<ino_t> read_sysfs_cgroup_inode(const char *filename) {
+std::optional<ino_t> read_sysfs_cgroup_inode(const char* filename) {
   const auto maybe_contents = read_file_prefix(filename, 4096);
   if (!maybe_contents) {
     return std::nullopt;
@@ -114,7 +115,7 @@ std::optional<ino_t> read_sysfs_cgroup_inode(const char *filename) {
   // /sys/fs/cgroup is the typical mount point for the cgroup2
   // filesystem, but it is not guaranteed.  In some FB environments
   // we've historically used /cgroup2 instead.
-  for (auto &candidate : {"/sys/fs/cgroup", "/cgroup2"}) {
+  for (auto& candidate : {"/sys/fs/cgroup", "/cgroup2"}) {
     auto path = std::string(candidate) + "/" + components[2];
     struct stat st;
     if (stat(path.c_str(), &st) == 0) {

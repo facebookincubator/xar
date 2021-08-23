@@ -9,15 +9,15 @@
 
 #pragma once
 
-#include <cstring>
 #include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <optional>
 #include <sstream>
 #include <string>
-#include <sys/stat.h>
-#include <unistd.h>
 #include <unordered_map>
 #include <vector>
 
@@ -85,7 +85,8 @@ size_t delimSize(const std::string& s) {
 // A slow, simple split function.  nsplits behaves like Python's split
 // function.
 template <typename DelimType>
-std::vector<std::string> split(const DelimType& delim, std::string s, const ssize_t nsplits = -1) {
+std::vector<std::string>
+split(const DelimType& delim, std::string s, const ssize_t nsplits = -1) {
   std::vector<std::string> ret;
 
   while (true) {
@@ -137,12 +138,12 @@ const char* kOffsetName = "OFFSET";
 const char* kXarexecTarget = "XAREXEC_TARGET";
 const char* kUuidName = "UUID";
 const char* kMountRoot = "MOUNT_ROOT";
-}
+} // namespace
 
 // Extract the UUID, OFFSET, XAREXEC_TARGET, and other parameters from
 // the XAR header.
-std::unordered_map<std::string, std::string>
-read_xar_header(const char *filename);
+std::unordered_map<std::string, std::string> read_xar_header(
+    const char* filename);
 
 // Attempt to the inode of a cgroup from the contents of a cgroup file
 // (typically /proc/PID/cgroup).  This file format is a three field
@@ -152,6 +153,6 @@ read_xar_header(const char *filename);
 //
 // Typically this function is just passed `/proc/self/cgroup` to find
 // this process's cgroup path.
-std::optional<ino_t> read_sysfs_cgroup_inode(const char *filename);
+std::optional<ino_t> read_sysfs_cgroup_inode(const char* filename);
 } // namespace xar
 } // namespace tools
