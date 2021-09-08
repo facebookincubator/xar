@@ -1,5 +1,6 @@
 // Copyright 2004-present Facebook. All Rights Reserved.
 
+#include <set>
 #include <string>
 #include <variant>
 #include <vector>
@@ -69,5 +70,20 @@ class XarParserResult {
  private:
   const std::variant<XarHeader, XarParserError> valueOrError_;
 };
+
+namespace detail {
+
+// Parse a single NAME="value" line from the header and set the provided
+// XarHeader and set of names found appropriately.
+std::optional<XarParserError> parseLine(
+    const std::string& line,
+    XarHeader* xarHeader,
+    std::set<std::string>* foundNames);
+
+// squashfs magic is required to be at the start of a squashfs image (i.e. at
+// offset in xar)
+constexpr uint8_t kSquashfsMagic[] = {0x68, 0x73, 0x71, 0x73};
+
+} // namespace detail
 } // namespace xar
 } // namespace tools

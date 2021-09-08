@@ -131,14 +131,23 @@ void no_mount_roots_help_message(std::ostream& out);
 
 namespace {
 // Set to true for verbose output when testing.
-const bool debugging = false;
-
-// Headers we specifically look for.
-const char* kOffsetName = "OFFSET";
-const char* kXarexecTarget = "XAREXEC_TARGET";
-const char* kUuidName = "UUID";
-const char* kMountRoot = "MOUNT_ROOT";
+constexpr bool debugging = false;
 } // namespace
+
+// Shebang that should be found on the first line of the header
+constexpr auto kShebang = "#!/usr/bin/env xarexec_fuse";
+// Marker for the end of the header section
+constexpr auto kXarStop = "#xar_stop";
+// Guaranteed trampoline name if trampoline names header is present
+constexpr auto kGuaranteedTrampolineName = "invoke_xar_via_trampoline";
+
+// Header names
+constexpr auto kOffsetName = "OFFSET";
+constexpr auto kUuidName = "UUID";
+constexpr auto kVersion = "VERSION";
+constexpr auto kXarexecTarget = "XAREXEC_TARGET";
+constexpr auto kXarexecTrampolineNames = "XAREXEC_TRAMPOLINE_NAMES";
+constexpr auto kMountRoot = "MOUNT_ROOT";
 
 // Extract the UUID, OFFSET, XAREXEC_TARGET, and other parameters from
 // the XAR header.
