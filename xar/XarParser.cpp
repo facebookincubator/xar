@@ -4,6 +4,9 @@
 #include "FileUtil.h"
 #include "XarHelpers.h"
 
+#include <algorithm>
+#include <numeric>
+
 namespace tools {
 namespace xar {
 namespace {
@@ -11,6 +14,22 @@ namespace {
 // The size of the header (i.e. OFFSET) must be a multiple of 4096 as per the
 // contract.
 constexpr auto kHeaderSizeBase = 4096;
+
+// Number of bytes to read to get the header. This is an upper bound on the size
+// of the header the parser supports. Typically we expect header size to be 4096
+// and that is unlikely to change, but there are no guarantees on this in the
+// contract.
+constexpr auto kMaxHeaderSize = 8192;
+
+XarParserResult makeErrorResult(XarParserErrorType type) {
+  return XarParserResult(XarParserError(type));
+}
+
+XarParserResult makeErrorResult(
+    XarParserErrorType type,
+    const std::string& detail) {
+  return XarParserResult(XarParserError(type, detail));
+}
 
 // Wrapper around std::stoull but require entire string, excluding leading
 // whitespace, to be used.
@@ -204,6 +223,131 @@ bool XarParserResult::hasValue() const noexcept {
 
 XarHeader XarParserResult::value() const {
   return std::get<XarHeader>(valueOrError_);
+}
+
+XarParserResult parseXarHeader(int fd) noexcept {
+  // Rewind the output fd to the beginning
+  if (::lseek(fd, 0, SEEK_SET)) {
+    return makeErrorResult(
+        XarParserErrorType::FILE_READ,
+        "File offset for " + std::to_string(fd) +
+            " could not be zeroed. errno: " + std::to_string(errno));
+  }
+  // Read entire header and enough extra bytes to include the squashfs magic
+  // number
+  std::vector<char> buf(kMaxHeaderSize + sizeof(detail::kSquashfsMagic), 0);
+  auto res = tools::xar::readFull(fd, buf.data(), buf.size());
+  if (res <= 0) {
+    return makeErrorResult(
+        XarParserErrorType::FILE_READ,
+        "Failed to read bytes from " + std::to_string(fd));
+  }
+  buf.resize(res);
+
+  // Verify first line is always shebang
+  const auto lines = tools::xar::split(
+      /* delim= */ '\n', std::string(buf.data(), buf.size()));
+
+  auto currentLine = lines.begin();
+
+  if (currentLine == lines.end()) {
+    return makeErrorResult(
+        XarParserErrorType::UNEXPECTED_END_OF_FILE,
+        "Failed to get first line which should contain shebang");
+  } else if (currentLine->rfind(kShebang, 0) != 0) {
+    return makeErrorResult(XarParserErrorType::INVALID_SHEBANG, *currentLine);
+  }
+  currentLine++;
+
+  std::set<std::string> foundNames;
+  XarHeader xarHeader;
+
+  // Get OFFSET from second line. OFFSET is guaranteed to be first parameter.
+  if (currentLine == lines.end()) {
+    return makeErrorResult(
+        XarParserErrorType::UNEXPECTED_END_OF_FILE,
+        "Failed to get next line which should contain offset");
+  }
+
+  if (auto maybeError =
+          detail::parseLine(*currentLine, &xarHeader, &foundNames)) {
+    return XarParserResult(*maybeError);
+  }
+
+  if (foundNames.find(kOffsetName) == foundNames.end()) {
+    return makeErrorResult(
+        XarParserErrorType::MISSING_PARAMETERS,
+        "Expected" + std::string(kOffsetName) + " to be on first line");
+  }
+  currentLine++;
+
+  // Verify offset is less than or equal to kMaxHeaderSize to ensure that we've
+  // read the entire header. This is not part of the contract, but it's
+  // reasonable to have some sort of upper bound on header size.
+  if (xarHeader.offset > kMaxHeaderSize) {
+    return makeErrorResult(
+        XarParserErrorType::INVALID_OFFSET,
+        std::to_string(xarHeader.offset) +
+            " is greater than max header size of " +
+            std::to_string(kMaxHeaderSize));
+  }
+
+  // Read until kXarStop or the last line
+  for (; currentLine != lines.end() && *currentLine != kXarStop;
+       ++currentLine) {
+    if (auto maybeError =
+            detail::parseLine(*currentLine, &xarHeader, &foundNames)) {
+      return XarParserResult(*maybeError);
+    }
+  }
+
+  if (currentLine == lines.end()) {
+    return makeErrorResult(
+        XarParserErrorType::UNEXPECTED_END_OF_FILE,
+        "Failed to find " + std::string(kXarStop));
+  }
+
+  // Check all required fields are set
+  const std::set<std::string> requiredParameters = {
+      kOffsetName, kVersion, kUuidName, kXarexecTarget};
+
+  std::vector<std::string> difference;
+  std::set_difference(
+      requiredParameters.begin(),
+      requiredParameters.end(),
+      foundNames.begin(),
+      foundNames.end(),
+      std::inserter(difference, difference.begin()));
+  if (!difference.empty()) {
+    std::string missingParamsString = std::accumulate(
+        std::begin(difference),
+        std::end(difference),
+        std::string(),
+        [](std::string& ss, std::string& s) {
+          return ss.empty() ? s : ss + ", " + s;
+        });
+    return makeErrorResult(
+        XarParserErrorType::MISSING_PARAMETERS, missingParamsString);
+  }
+
+  // Check for squashfs magic at OFFSET
+  if (std::memcmp(
+          &buf[xarHeader.offset],
+          detail::kSquashfsMagic,
+          sizeof(detail::kSquashfsMagic)) != 0) {
+    return makeErrorResult(XarParserErrorType::INCORRECT_MAGIC);
+  }
+
+  return XarParserResult(xarHeader);
+}
+
+XarParserResult parseXarHeader(const std::string& xar_path) noexcept {
+  int fd = tools::xar::openNoInt(xar_path.c_str(), O_RDONLY | O_CLOEXEC);
+  if (fd < 0) {
+    return makeErrorResult(
+        XarParserErrorType::FILE_OPEN, "errno: " + std::to_string(errno));
+  }
+  return parseXarHeader(fd);
 }
 
 } // namespace xar

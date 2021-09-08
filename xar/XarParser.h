@@ -85,5 +85,17 @@ std::optional<XarParserError> parseLine(
 constexpr uint8_t kSquashfsMagic[] = {0x68, 0x73, 0x71, 0x73};
 
 } // namespace detail
+
+// Returns the header of XAR if and only if fd points to a file beginning with a
+// valid XAR header. This does not verify that the rest of the xar is valid
+// (e.g. squashfs image is mountable, xarexec_target and trampolines exist).
+XarParserResult parseXarHeader(int fd) noexcept;
+
+// Returns the header of XAR if and only if xar_path points to a file beginning
+// with a valid XAR header. This does not verify that the rest of the xar is
+// valid (e.g. that squashfs image is mountable, xaraexec_target and trampolines
+// exist).
+XarParserResult parseXarHeader(const std::string& xar_path) noexcept;
+
 } // namespace xar
 } // namespace tools
