@@ -69,6 +69,17 @@ class LogFatal {
 };
 } // namespace detail
 
+// Representation of XAR header found at the top of any XAR file
+struct XarHeader {
+  unsigned long long offset;
+  std::string uuid;
+  std::string version;
+  std::string xarexecTarget;
+  // List of trampoline names. These are not shell-escaped and so may differ
+  // from the original shell-escaped names in the header.
+  std::vector<std::string> xarexecTrampolineNames;
+};
+
 // The unmount command used for unmounting the squash fs. Differs depending on
 // OS.
 extern const char* UNMOUNT_CMD;
@@ -106,6 +117,19 @@ split(const DelimType& delim, std::string s, const ssize_t nsplits = -1) {
   }
 
   return ret;
+}
+
+// A simple join function that will return `items` joined by `delim`.
+template <typename T>
+std::string join(const std::string& delim, const T& items) {
+  std::string s;
+  for (const auto& item : items) {
+    if (!s.empty()) {
+      s += delim;
+    }
+    s += item;
+  }
+  return s;
 }
 
 // Return true if the host has enabled "user_allow_other" in
@@ -163,5 +187,9 @@ std::unordered_map<std::string, std::string> read_xar_header(
 // Typically this function is just passed `/proc/self/cgroup` to find
 // this process's cgroup path.
 std::optional<ino_t> read_sysfs_cgroup_inode(const char* filename);
+
+// Serialize XAR header an JSON.
+std::string serializeHeaderAsJSON(const XarHeader& header) noexcept;
+
 } // namespace xar
 } // namespace tools

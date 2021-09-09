@@ -126,6 +126,28 @@ std::optional<ino_t> read_sysfs_cgroup_inode(const char* filename) {
   return std::nullopt;
 }
 
+std::string serializeHeaderAsJSON(const XarHeader& header) noexcept {
+  std::string ret = "{";
+  for (const auto& [name, value] :
+       std::initializer_list<std::pair<std::string, std::string>>{
+           {kOffsetName, std::to_string(header.offset)},
+           {kUuidName, "\"" + header.uuid + "\""},
+           {kVersion, "\"" + header.version + "\""},
+           {kXarexecTarget, "\"" + header.xarexecTarget + "\""},
+           {kXarexecTrampolineNames,
+            "[\"" + join("\",\"", header.xarexecTrampolineNames) + "\"]"}}) {
+    if (ret.size() > 1) {
+      ret += ",";
+    }
+    ret += "\"";
+    ret += name;
+    ret += "\":";
+    ret += value;
+  }
+  ret += "}";
+  return ret;
+}
+
 namespace detail {
 static std::string buffer;
 

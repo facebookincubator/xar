@@ -97,6 +97,21 @@ TEST(XarHelpers, PartialSplitTest) {
   EXPECT_EQ(parts[1], "\"a=b=c\"");
 }
 
+TEST(XarHelpers, JoinTest) {
+  std::string joined = join(",", std::vector<std::string>{"a", "b", "c", "d"});
+  EXPECT_EQ(joined, "a,b,c,d");
+
+  joined = join(
+      ", ", std::vector<std::string>{"All", "your base are", "belong to us"});
+  EXPECT_EQ(joined, "All, your base are, belong to us");
+
+  joined = join(",", std::vector<std::string>{"One item"});
+  EXPECT_EQ(joined, "One item");
+
+  joined = join(",", std::vector<std::string>{});
+  EXPECT_EQ(joined, "");
+}
+
 TEST(XarHelpers, FuseConfTest) {
   // Test two normal-ish fuse.conf examples.
   EXPECT_TRUE(
@@ -130,4 +145,18 @@ TEST(XarHelpers, FindCgroupInodeTest) {
   const auto missing_cgroup_inode =
       tools::xar::read_sysfs_cgroup_inode("/doesnotexistlalalala");
   EXPECT_FALSE(missing_cgroup_inode);
+}
+
+TEST(XarHelpers, SerializeHeaderAsJSONTest) {
+  const XarHeader header{
+      .offset = 4096,
+      .uuid = "d770950c",
+      .version = "1628211316",
+      .xarexecTarget = "xar_bootstrap.sh",
+      .xarexecTrampolineNames = {"lookup.xar", "invoke_xar_via_trampoline"},
+  };
+  const auto json = serializeHeaderAsJSON(header);
+  EXPECT_EQ(
+      json,
+      R"({"OFFSET":4096,"UUID":"d770950c","VERSION":"1628211316","XAREXEC_TARGET":"xar_bootstrap.sh","XAREXEC_TRAMPOLINE_NAMES":["lookup.xar","invoke_xar_via_trampoline"]})");
 }

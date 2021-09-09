@@ -5,19 +5,10 @@
 #include <variant>
 #include <vector>
 
+#include "XarHelpers.h"
+
 namespace tools {
 namespace xar {
-
-// Representation of XAR header found at the top of any XAR file
-struct XarHeader {
-  unsigned long long offset;
-  std::string uuid;
-  std::string version;
-  std::string xarexecTarget;
-  // List of trampoline names. These are not shell-escaped and so may differ
-  // from the original shell-escaped names in the header.
-  std::vector<std::string> xarexecTrampolineNames;
-};
 
 // Error type returned by XAR parser
 enum class XarParserErrorType {
