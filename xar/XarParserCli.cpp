@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <iostream>
 
-#include "XarHelpers.h"
 #include "XarParser.h"
 
 void help(const char* progName) {
