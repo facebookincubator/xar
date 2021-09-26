@@ -198,6 +198,8 @@ std::string XarParserError::getErrorMessage() const noexcept {
         return "Error parsing trampoline names: ";
       case XarParserErrorType::UNEXPECTED_END_OF_FILE:
         return "Unexpected end of file reached: ";
+      default:
+        return "";
     }
   };
   return getBaseMessage(type_) + detail_;
