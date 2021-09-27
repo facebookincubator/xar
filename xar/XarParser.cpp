@@ -199,7 +199,7 @@ std::string XarParserError::getErrorMessage() const noexcept {
       case XarParserErrorType::UNEXPECTED_END_OF_FILE:
         return "Unexpected end of file reached: ";
       default:
-        return "";
+        return "Unknown XarParserErrorType";
     }
   };
   return getBaseMessage(type_) + detail_;

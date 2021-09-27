@@ -717,5 +717,11 @@ DEPENDENCIES="")",
   }
 }
 
+TEST_F(XarParserTest, TestInvalidXarParserErrorType) {
+  // create an error with an invalid XarParserErrorType
+  const auto xarError = new XarParserError((XarParserErrorType)-1);
+  EXPECT_EQ(xarError->getErrorMessage(), "Unknown XarParserErrorType");
+}
+
 } // namespace xar
 } // namespace tools
