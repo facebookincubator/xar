@@ -71,10 +71,6 @@ std::optional<XarParserError> parseLine(
     XarHeader* xarHeader,
     std::set<std::string>* foundNames);
 
-// squashfs magic is required to be at the start of a squashfs image (i.e. at
-// offset in xar)
-constexpr uint8_t kSquashfsMagic[] = {0x68, 0x73, 0x71, 0x73};
-
 } // namespace detail
 
 // Returns the header of XAR if and only if fd points to a file beginning with a

@@ -341,9 +341,7 @@ class XarParserTest : public ::testing::Test {
         header,
         /* includeMagic */ true,
         /* magic */
-        std::vector(
-            detail::kSquashfsMagic,
-            detail::kSquashfsMagic + sizeof(detail::kSquashfsMagic)));
+        std::vector(kSquashfsMagic, kSquashfsMagic + sizeof(kSquashfsMagic)));
   }
 
   // Create a temporary file with a given XAR header.
@@ -618,7 +616,7 @@ exit 1
 }
 
 TEST_F(XarParserTest, TestInvalidHeaderWithIncorrectMagic) {
-  static_assert(sizeof(detail::kSquashfsMagic) == 4);
+  static_assert(sizeof(kSquashfsMagic) == 4);
   { // First byte wrong
     makeXar(
         u8R"(#!/usr/bin/env xarexec_fuse
@@ -633,10 +631,7 @@ exit 1
 # Actual squashfs file begins at 4096)",
         /* includeMagic */ true,
         /* magic */
-        {0xFF,
-         detail::kSquashfsMagic[1],
-         detail::kSquashfsMagic[2],
-         detail::kSquashfsMagic[3]});
+        {0xFF, kSquashfsMagic[1], kSquashfsMagic[2], kSquashfsMagic[3]});
     const auto maybeHeader = parseXarHeader(getFd());
     ASSERT_TRUE(maybeHeader.hasError());
     EXPECT_EQ(maybeHeader.error().type(), XarParserErrorType::INCORRECT_MAGIC)
@@ -655,10 +650,7 @@ echo This XAR file should not be executed by sh
 exit 1
 # Actual squashfs file begins at 4096)",
         /* includeMagic */ false,
-        {0xFF,
-         detail::kSquashfsMagic[0],
-         detail::kSquashfsMagic[1],
-         detail::kSquashfsMagic[2]});
+        {0xFF, kSquashfsMagic[0], kSquashfsMagic[1], kSquashfsMagic[2]});
     const auto maybeHeader = parseXarHeader(getFd());
     ASSERT_TRUE(maybeHeader.hasError());
     EXPECT_EQ(maybeHeader.error().type(), XarParserErrorType::INCORRECT_MAGIC)

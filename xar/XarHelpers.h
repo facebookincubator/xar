@@ -112,6 +112,9 @@ namespace {
 constexpr bool debugging = false;
 } // namespace
 
+// squashfs magic is required to be at the start of a squashfs image
+// (i.e. at offset in XAR)
+constexpr uint8_t kSquashfsMagic[] = {0x68, 0x73, 0x71, 0x73};
 // Shebang that should be found on the first line of the header
 constexpr auto kShebang = "#!/usr/bin/env xarexec_fuse";
 // Marker for the end of the header section

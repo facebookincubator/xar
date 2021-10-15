@@ -237,12 +237,17 @@ XarParserResult parseXarHeader(int fd) noexcept {
   }
   // Read entire header and enough extra bytes to include the squashfs magic
   // number
-  std::vector<char> buf(kMaxHeaderSize + sizeof(detail::kSquashfsMagic), 0);
+  std::vector<char> buf(kMaxHeaderSize + sizeof(kSquashfsMagic), 0);
   auto res = tools::xar::readFull(fd, buf.data(), buf.size());
   if (res <= 0) {
+    std::string errMsg = "";
+    if (errno != 0) {
+      errMsg = std::to_string(errno);
+    }
     return makeErrorResult(
         XarParserErrorType::FILE_READ,
-        "Failed to read bytes from " + std::to_string(fd));
+        "Failed to read bytes from fd: " + std::to_string(fd) +
+            " read returned " + std::to_string(res) + "with errno: " + errMsg);
   }
   buf.resize(res);
 
@@ -334,9 +339,8 @@ XarParserResult parseXarHeader(int fd) noexcept {
 
   // Check for squashfs magic at OFFSET
   if (std::memcmp(
-          &buf[xarHeader.offset],
-          detail::kSquashfsMagic,
-          sizeof(detail::kSquashfsMagic)) != 0) {
+          &buf[xarHeader.offset], kSquashfsMagic, sizeof(kSquashfsMagic)) !=
+      0) {
     return makeErrorResult(XarParserErrorType::INCORRECT_MAGIC);
   }
 
