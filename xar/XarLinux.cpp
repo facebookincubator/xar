@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <cstdlib>
 
+#include "Logging.h"
 #include "XarHelpers.h"
 
 #define FUSE_SUPER_MAGIC 0x65735546
@@ -23,7 +24,7 @@ bool tools::xar::is_user_in_group(gid_t dir_gid) {
   size_t num_groups = getgroups(0, nullptr);
   gid_t user_group_list[num_groups];
   int group_count = getgroups(sizeof(user_group_list), user_group_list);
-  PCHECK_SIMPLE(group_count > -1);
+  XAR_PCHECK_SIMPLE(group_count > -1);
 
   for (int i = 0; i < group_count; ++i) {
     if (user_group_list[i] == dir_gid) {

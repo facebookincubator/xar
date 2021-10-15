@@ -13,6 +13,7 @@
 #include <sys/proc_info.h>
 #include <unistd.h>
 
+#include "Logging.h"
 #include "XarHelpers.h"
 
 // This is clowny, but it works. This is an undocumented function built into
@@ -30,7 +31,7 @@ bool tools::xar::is_user_in_group(gid_t dir_gid) {
   auto user = getpwuid(geteuid());
   gid_t* gids = nullptr;
   auto ngroups = getgrouplist_2(user->pw_name, user->pw_gid, &gids);
-  PCHECK_SIMPLE(ngroups > -1);
+  XAR_PCHECK_SIMPLE(ngroups > -1);
   return std::find(gids, gids + ngroups, dir_gid) != gids + ngroups;
 }
 
@@ -39,7 +40,7 @@ bool tools::xar::is_user_in_group(gid_t dir_gid) {
 void tools::xar::close_non_std_fds() {
   // Get list of pids (and their types).
   int buffer_size = proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, nullptr, 0);
-  PCHECK_SIMPLE(buffer_size > -1);
+  XAR_PCHECK_SIMPLE(buffer_size > -1);
   auto num_pids = static_cast<size_t>(buffer_size) / sizeof(proc_fdinfo);
   std::vector<proc_fdinfo> proc_fds(num_pids, proc_fdinfo{});
   proc_pidinfo(getpid(), PROC_PIDLISTFDS, 0, proc_fds.data(), buffer_size);

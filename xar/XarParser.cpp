@@ -5,6 +5,7 @@
 #include "XarHelpers.h"
 
 #include <algorithm>
+#include <cstring>
 #include <numeric>
 
 namespace tools {

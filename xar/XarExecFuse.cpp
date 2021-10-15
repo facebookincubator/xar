@@ -53,6 +53,7 @@
 #include <unistd.h>
 #include <cstdlib>
 
+#include "Logging.h"
 #include "XarHelpers.h"
 
 namespace {
@@ -83,25 +84,25 @@ void check_file_sanity(
     enum Expectation expected,
     mode_t perms) {
   struct stat st;
-  PCHECK_SIMPLE(stat(path.c_str(), &st) == 0);
+  XAR_PCHECK_SIMPLE(stat(path.c_str(), &st) == 0);
   if (st.st_uid != geteuid()) {
-    FATAL << "Invalid owner of " << path;
+    XAR_FATAL << "Invalid owner of " << path;
   }
 
   // Verify the directory is owned by one of the groups the user is in.
   if (st.st_gid != getegid() && !tools::xar::is_user_in_group(st.st_gid)) {
-    FATAL << "Invalid group of " << path;
+    XAR_FATAL << "Invalid group of " << path;
   }
 
   if (expected == Expectation::Directory && !S_ISDIR(st.st_mode)) {
-    FATAL << "Should be a directory: " << path;
+    XAR_FATAL << "Should be a directory: " << path;
   }
   if (expected == Expectation::File && !S_ISREG(st.st_mode)) {
-    FATAL << "Should be a normal file: " << path;
+    XAR_FATAL << "Should be a normal file: " << path;
   }
   if ((st.st_mode & 07777) != perms) {
-    FATAL << "Invalid permissions on " << path << ", expected " << std::oct
-          << perms << ", got " << (st.st_mode & 07777);
+    XAR_FATAL << "Invalid permissions on " << path << ", expected " << std::oct
+              << perms << ", got " << (st.st_mode & 07777);
   }
 }
 
@@ -124,12 +125,12 @@ std::string get_user_basedir(const std::string& basedir) {
 int grab_lock(const std::string& lockfile) {
   int fd = open(lockfile.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0600);
   if (fd < 0) {
-    FATAL << "can't open lockfile: " << strerror(errno);
+    XAR_FATAL << "can't open lockfile: " << strerror(errno);
   }
 
   check_file_sanity(lockfile, Expectation::File, 0600);
   if (flock(fd, LOCK_EX) != 0) {
-    FATAL << "can't flock lockfile: " << strerror(errno);
+    XAR_FATAL << "can't flock lockfile: " << strerror(errno);
   }
 
   return fd;
@@ -144,12 +145,12 @@ bool is_squashfuse_mounted(const std::string& path, bool try_fix) {
     if (errno == ENOTCONN || errno == ECONNABORTED) {
       std::string cmd = tools::xar::UNMOUNT_CMD + path;
       if (system(cmd.c_str()) != 0) {
-        FATAL << "unable to umount broken mount; try 'fusermount -u " << path
-              << "' by hand";
+        XAR_FATAL << "unable to umount broken mount; try 'fusermount -u "
+                  << path << "' by hand";
       }
       return false;
     }
-    FATAL << "statfs failed for " << path << ": " << strerror(errno);
+    XAR_FATAL << "statfs failed for " << path << ": " << strerror(errno);
   }
 
   return tools::xar::is_squashfs_mounted(statfs_buf);
@@ -171,7 +172,7 @@ void sanitize_file_descriptors() {
   // unopened fd, we can just open and refuse to close if the fd is
   // what we want.
   int in_fd = open("/dev/null", O_RDONLY);
-  PCHECK_SIMPLE(in_fd >= 0);
+  XAR_PCHECK_SIMPLE(in_fd >= 0);
   if (in_fd > 0) {
     close(in_fd);
   }
@@ -179,7 +180,7 @@ void sanitize_file_descriptors() {
   // Fill fd 1 and 2 with /dev/null if they're not already open.
   while (true) {
     int out_fd = open("/dev/null", O_WRONLY);
-    PCHECK_SIMPLE(out_fd >= 0);
+    XAR_PCHECK_SIMPLE(out_fd >= 0);
     if (out_fd > 2) {
       close(out_fd);
       break;
@@ -223,7 +224,7 @@ void usage() {
 } // namespace
 
 int main(int argc, char** argv) {
-  CHECK_SIMPLE(getuid() == geteuid());
+  XAR_CHECK_SIMPLE(getuid() == geteuid());
   // Set our umask to a good default for the files we create.  Save
   // the old value to restore before executing the XAR bootstrap
   // script.
@@ -277,7 +278,7 @@ int main(int argc, char** argv) {
   } catch (const std::exception& ex) {
     cerr << "Header offset is non-integral: " << header[tools::xar::kOffsetName]
          << endl;
-    FATAL << "Exact error: " << ex.what();
+    XAR_FATAL << "Exact error: " << ex.what();
   }
   std::string uuid = header[tools::xar::kUuidName];
   std::string execpath;
@@ -286,13 +287,13 @@ int main(int argc, char** argv) {
     execpath = it->second;
   }
   if (!mount_only && execpath.empty()) {
-    FATAL << "No XAREXEC_TARGET in XAR header of " << xar_path;
+    XAR_FATAL << "No XAREXEC_TARGET in XAR header of " << xar_path;
   }
   if (!std::all_of(uuid.begin(), uuid.end(), isxdigit)) {
-    FATAL << "uuid must only contain hex digits";
+    XAR_FATAL << "uuid must only contain hex digits";
   }
   if (uuid.empty()) {
-    FATAL << "uuid must be non-empty";
+    XAR_FATAL << "uuid must be non-empty";
   }
 
   // If provided, use a non-default mount root from the header.
@@ -311,17 +312,17 @@ int main(int argc, char** argv) {
       }
     }
     if (mountroot.empty()) {
-      tools::xar::no_mount_roots_help_message(FATAL);
+      tools::xar::no_mount_roots_help_message(XAR_FATAL);
     }
   }
 
   struct stat st;
   if (stat(mountroot.c_str(), &st) != 0) {
-    FATAL << "Failed to stat mount root '" << mountroot
-          << "': " << strerror(errno);
+    XAR_FATAL << "Failed to stat mount root '" << mountroot
+              << "': " << strerror(errno);
   }
   if ((st.st_mode & 07777) != 01777) {
-    FATAL << "Mount root '" << mountroot << "' permissions should be 01777";
+    XAR_FATAL << "Mount root '" << mountroot << "' permissions should be 01777";
   }
 
   // Path is /mnt/xarfuse/uid-N/UUID-ns-Y; we make directories under
@@ -388,10 +389,10 @@ int main(int argc, char** argv) {
     // which is not necessarily owned by the euid executing the xar. Instead,
     // chown() the new directory to the euid and egid.
     if (kIsDarwin) {
-      PCHECK_SIMPLE(chown(mount_path.c_str(), geteuid(), getegid()) == 0);
+      XAR_PCHECK_SIMPLE(chown(mount_path.c_str(), geteuid(), getegid()) == 0);
     }
   } else if (errno != EEXIST) {
-    FATAL << "mkdir failed:" << strerror(errno);
+    XAR_FATAL << "mkdir failed:" << strerror(errno);
   }
 
   // Construct our exec path; if it already exists, we're done and can
@@ -434,7 +435,7 @@ int main(int argc, char** argv) {
     check_file_sanity(mount_path, Expectation::Directory, 0755);
 
     pid_t pid = fork();
-    PCHECK_SIMPLE(pid >= 0);
+    XAR_PCHECK_SIMPLE(pid >= 0);
     if (pid == 0) {
       sanitize_file_descriptors();
       std::string opts = "-ooffset=" + std::to_string(offset);
@@ -452,23 +453,23 @@ int main(int argc, char** argv) {
           mount_path.c_str(),
           nullptr);
       if (ret != 0) {
-        FATAL << "Failed to exec squashfuse_ll: " << strerror(errno)
-              << ". Try installing squashfuse from "
-                 "https://github.com/vasi/squashfuse/releases.";
+        XAR_FATAL << "Failed to exec squashfuse_ll: " << strerror(errno)
+                  << ". Try installing squashfuse from "
+                     "https://github.com/vasi/squashfuse/releases.";
       }
     } else {
       int status = 0;
-      PCHECK_SIMPLE(waitpid(pid, &status, 0) == pid);
+      XAR_PCHECK_SIMPLE(waitpid(pid, &status, 0) == pid);
       // We only make it out of this block if we have an exit status of 0.
       if (WIFEXITED(status)) {
         if (WEXITSTATUS(status) != 0) {
-          FATAL << "squashfuse_ll failed with exit status "
-                << WEXITSTATUS(status);
+          XAR_FATAL << "squashfuse_ll failed with exit status "
+                    << WEXITSTATUS(status);
         }
       } else if (WIFSIGNALED(status)) {
-        FATAL << "squashfuse_ll failed with signal " << WTERMSIG(status);
+        XAR_FATAL << "squashfuse_ll failed with signal " << WTERMSIG(status);
       } else {
-        FATAL << "squashfuse_ll failed with unknown exit status " << status;
+        XAR_FATAL << "squashfuse_ll failed with unknown exit status " << status;
       }
     }
     newMount = true;
@@ -479,7 +480,7 @@ int main(int argc, char** argv) {
   auto timeout = std::chrono::seconds(9);
   while (!is_squashfuse_mounted(mount_path, false)) {
     if (std::chrono::steady_clock::now() - start > timeout) {
-      FATAL << "timed out waiting for squashfs mount";
+      XAR_FATAL << "timed out waiting for squashfs mount";
     }
     /* sleep override */
     std::this_thread::sleep_for(std::chrono::microseconds(100));
@@ -487,7 +488,7 @@ int main(int argc, char** argv) {
 
   // Touch the lockfile; our unmount script will use it as a proxy for
   // unmounting "stale" mounts.
-  PCHECK_SIMPLE(futimes(lock_fd, nullptr) == 0);
+  XAR_PCHECK_SIMPLE(futimes(lock_fd, nullptr) == 0);
 
   if (mount_only) {
     cout << mount_path << endl;
@@ -500,7 +501,7 @@ int main(int argc, char** argv) {
   }
   // Still no success?  Bail.
   if (bootstrap_fd == -1) {
-    FATAL << "Unable to open " << exec_path << ": " << strerror(errno);
+    XAR_FATAL << "Unable to open " << exec_path << ": " << strerror(errno);
   }
 
   // cmd line is:
@@ -516,8 +517,8 @@ int main(int argc, char** argv) {
   newArgs[1] = strdup("-e");
   newArgs[2] = strdup(exec_path.c_str());
   if (!newArgs[0] || !newArgs[1] || !newArgs[2]) {
-    FATAL << "strdup failed, call the cops"
-          << ": " << strerror(errno);
+    XAR_FATAL << "strdup failed, call the cops"
+              << ": " << strerror(errno);
   }
   newArgs[3] = xar_path;
   for (int i = 0; i < argc; ++i) {
@@ -535,7 +536,7 @@ int main(int argc, char** argv) {
   }
   umask(old_umask);
   if (execv(newArgs[0], newArgs) != 0) {
-    FATAL << "execv: " << strerror(errno) << "cmd: " << newArgs[0];
+    XAR_FATAL << "execv: " << strerror(errno) << "cmd: " << newArgs[0];
   }
 
   return 0;

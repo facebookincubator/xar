@@ -5,6 +5,7 @@
 // LICENSE file in the root directory of this source tree.
 
 #include "XarHelpers.h"
+#include "Logging.h"
 
 namespace tools {
 namespace xar {
@@ -40,12 +41,12 @@ std::unordered_map<std::string, std::string> read_xar_header(
     const char* filename) {
   const auto maybe_header = read_file_prefix(filename, kDefaultHeaderSize);
   if (!maybe_header) {
-    FATAL << "Unable to open or read XAR header from " << filename;
+    XAR_FATAL << "Unable to open or read XAR header from " << filename;
   }
   const auto header = *maybe_header;
   if (header.size() != kDefaultHeaderSize) {
-    FATAL << "Short read of header of " << filename << ", " << header.size()
-          << " vs expected " << kDefaultHeaderSize;
+    XAR_FATAL << "Short read of header of " << filename << ", " << header.size()
+              << " vs expected " << kDefaultHeaderSize;
   }
 
   std::unordered_map<std::string, std::string> ret;
@@ -60,14 +61,14 @@ std::unordered_map<std::string, std::string> read_xar_header(
 
     auto name_value = tools::xar::split('=', line, 1);
     if (name_value.size() != 2) {
-      FATAL << "malformed header line: " << line;
+      XAR_FATAL << "malformed header line: " << line;
     }
     std::string name = name_value[0];
     std::string value = name_value[1];
 
     if (name.empty() || value.size() < 2 || value.front() != '"' ||
         value.back() != '"') {
-      FATAL << "invalid line in xar header: " << line;
+      XAR_FATAL << "invalid line in xar header: " << line;
     }
     // skip quotes around value
     ret[name] = value.substr(1, value.size() - 2);
@@ -75,11 +76,11 @@ std::unordered_map<std::string, std::string> read_xar_header(
 
   if (ret.find(kOffsetName) == ret.end() ||
       ret[kOffsetName] != std::to_string(kDefaultHeaderSize)) {
-    FATAL << "TODO(chip): support headers other than he default";
+    XAR_FATAL << "TODO(chip): support headers other than he default";
   }
 
   if (ret.find(kUuidName) == ret.end()) {
-    FATAL << "No UUID in XAR header";
+    XAR_FATAL << "No UUID in XAR header";
   }
 
   if (debugging) {
@@ -148,17 +149,5 @@ std::string serializeHeaderAsJSON(const XarHeader& header) noexcept {
   return ret;
 }
 
-namespace detail {
-static std::string buffer;
-
-LogFatal::~LogFatal() {
-  // Keep a static forensics variable preserve the error message; this lets
-  // us inspect it from the core since stderr is often not saved.
-  buffer = ostream.str();
-  std::cerr << buffer << std::endl;
-  abort();
-}
-
-} // namespace detail
 } // namespace xar
 } // namespace tools

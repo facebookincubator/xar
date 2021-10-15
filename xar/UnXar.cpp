@@ -6,6 +6,7 @@
 
 #include <unistd.h>
 
+#include "Logging.h"
 #include "XarHelpers.h"
 
 namespace {
@@ -25,7 +26,7 @@ void usage() {
 
 char* pop_arg(int& argc, char**& argv) {
   if (argc == 0) {
-    FATAL << "Bad argument parsing logic!";
+    XAR_FATAL << "Bad argument parsing logic!";
   }
   char* const arg = argv[0];
   ++argv;
@@ -79,8 +80,8 @@ int main(int argc, char** argv) {
   newArgs[4] = dest_path;
   for (int i = 0; i < 4; ++i) {
     if (!newArgs[i]) {
-      FATAL << "strdup failed, call the cops"
-            << ": " << strerror(errno);
+      XAR_FATAL << "strdup failed, call the cops"
+                << ": " << strerror(errno);
     }
   }
   for (int i = 0; i < argc; ++i) {
@@ -96,6 +97,6 @@ int main(int argc, char** argv) {
   }
 
   if (execvp(newArgs[0], newArgs) != 0) {
-    FATAL << "execv: " << strerror(errno) << "cmd: " << newArgs[0];
+    XAR_FATAL << "execv: " << strerror(errno) << "cmd: " << newArgs[0];
   }
 }
