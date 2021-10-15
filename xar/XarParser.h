@@ -5,7 +5,8 @@
 #include <variant>
 #include <vector>
 
-#include "XarHelpers.h"
+#include "XarHelpers.h" // @oss-only
+// @fb-only: #include "tools/xar/XarHelpers.h"
 
 namespace tools {
 namespace xar {
