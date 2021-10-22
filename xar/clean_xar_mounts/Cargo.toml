@@ -2,7 +2,7 @@
 name = "clean_xar_mounts"
 version = "0.1.0"
 authors = ["chip <chip@fb.com>"]
-edition = "2018"
+edition = "2021"
 
 [dependencies]
 anyhow = "1.0"
