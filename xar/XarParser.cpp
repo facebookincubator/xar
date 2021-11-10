@@ -330,7 +330,7 @@ XarParserResult parseXarHeader(int fd) noexcept {
         std::begin(difference),
         std::end(difference),
         std::string(),
-        [](std::string& ss, std::string& s) {
+        [](const std::string& ss, const std::string& s) {
           return ss.empty() ? s : ss + ", " + s;
         });
     return makeErrorResult(
