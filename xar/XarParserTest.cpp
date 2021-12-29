@@ -11,6 +11,9 @@
 namespace tools {
 namespace xar {
 
+#define PARSELINE(s, h, n) \
+  detail::parseLine(reinterpret_cast<const char*>(s), h, n)
+
 constexpr auto kTestHeaderSize = 4096;
 
 TEST(XarParserResultTest, TestXarParserResultError) {
@@ -50,7 +53,7 @@ TEST(XarParserResultTest, TestXarParserResultSuccess) {
 TEST(XarParserParseLineTest, TestParseWithMissingEqual) {
   XarHeader header;
   std::set<std::string> foundNames{};
-  auto res = detail::parseLine(u8R"(OFFSET "")", &header, &foundNames);
+  auto res = PARSELINE(u8R"(OFFSET "")", &header, &foundNames);
   ASSERT_TRUE(res.has_value());
   EXPECT_EQ(res.value().type(), XarParserErrorType::MALFORMED_LINE)
       << res.value().getErrorMessage();
@@ -60,7 +63,7 @@ TEST(XarParserParseLineTest, TestParseWithMissingDoubleQuotes) {
   { // No " instead of two
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(u8R"(OFFSET=)", &header, &foundNames);
+    auto res = PARSELINE(u8R"(OFFSET=)", &header, &foundNames);
     ASSERT_TRUE(res.has_value());
     EXPECT_EQ(res.value().type(), XarParserErrorType::MALFORMED_LINE)
         << res.value().getErrorMessage();
@@ -69,7 +72,7 @@ TEST(XarParserParseLineTest, TestParseWithMissingDoubleQuotes) {
   { // Only one " instead of two
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(u8R"(OFFSET=")", &header, &foundNames);
+    auto res = PARSELINE(u8R"(OFFSET=")", &header, &foundNames);
     ASSERT_TRUE(res.has_value());
     EXPECT_EQ(res.value().type(), XarParserErrorType::MALFORMED_LINE)
         << res.value().getErrorMessage();
@@ -80,8 +83,8 @@ TEST(XarParserParseLineTest, TestParseWithMissingDoubleQuotes) {
 TEST(XarParserParseLineTest, TestParseWithQuoteInValue) {
   XarHeader header;
   std::set<std::string> foundNames{};
-  auto res = detail::parseLine(
-      u8R"(XAREXEC_TRAMPOLINE_NAMES=""")", &header, &foundNames);
+  auto res =
+      PARSELINE(u8R"(XAREXEC_TRAMPOLINE_NAMES=""")", &header, &foundNames);
   ASSERT_TRUE(res.has_value());
   EXPECT_EQ(res.value().type(), XarParserErrorType::MALFORMED_LINE)
       << res.value().getErrorMessage();
@@ -90,7 +93,7 @@ TEST(XarParserParseLineTest, TestParseWithQuoteInValue) {
 TEST(XarParserParseLineTest, TestParseDuplicateName) {
   XarHeader header;
   std::set<std::string> foundNames{"OFFSET"};
-  auto res = detail::parseLine(u8R"(OFFSET="4096")", &header, &foundNames);
+  auto res = PARSELINE(u8R"(OFFSET="4096")", &header, &foundNames);
   ASSERT_TRUE(res.has_value());
   EXPECT_EQ(res.value().type(), XarParserErrorType::DUPLICATE_PARAMETER)
       << res.value().getErrorMessage();
@@ -99,7 +102,7 @@ TEST(XarParserParseLineTest, TestParseDuplicateName) {
 TEST(XarParserParseLineTest, TestParseWithEmptyName) {
   XarHeader header;
   std::set<std::string> foundNames{};
-  auto res = detail::parseLine(u8R"(="val")", &header, &foundNames);
+  auto res = PARSELINE(u8R"(="val")", &header, &foundNames);
   ASSERT_TRUE(res.has_value());
   EXPECT_EQ(res.value().type(), XarParserErrorType::MALFORMED_LINE)
       << res.value().getErrorMessage();
@@ -109,7 +112,7 @@ TEST(XarParserParseLineTest, TestParseWithUnknownName) {
   // We should not fail if a new variable is introduced
   XarHeader header;
   std::set<std::string> foundNames{};
-  auto res = detail::parseLine(u8R"(NEW_NAME="1234")", &header, &foundNames);
+  auto res = PARSELINE(u8R"(NEW_NAME="1234")", &header, &foundNames);
   ASSERT_FALSE(res.has_value());
 }
 
@@ -117,21 +120,21 @@ TEST(XarParserParseLineTest, TestParseOffset) {
   { // Typical
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(u8R"(OFFSET="4096")", &header, &foundNames);
+    auto res = PARSELINE(u8R"(OFFSET="4096")", &header, &foundNames);
     EXPECT_FALSE(res.has_value()) << res.value().getErrorMessage();
     EXPECT_EQ(header.offset, 4096);
   }
   { // Positive multiple of 4096 (that's not 4096)
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(u8R"(OFFSET="8192")", &header, &foundNames);
+    auto res = PARSELINE(u8R"(OFFSET="8192")", &header, &foundNames);
     EXPECT_FALSE(res.has_value()) << res.value().getErrorMessage();
     EXPECT_EQ(header.offset, 8192);
   }
   { // Empty value
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(u8R"(OFFSET="")", &header, &foundNames);
+    auto res = PARSELINE(u8R"(OFFSET="")", &header, &foundNames);
     ASSERT_TRUE(res.has_value());
     EXPECT_EQ(res.value().type(), XarParserErrorType::INVALID_OFFSET);
     EXPECT_EQ(
@@ -141,7 +144,7 @@ TEST(XarParserParseLineTest, TestParseOffset) {
   { // Can't be parsed as unsigned int
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(u8R"(OFFSET="4096X")", &header, &foundNames);
+    auto res = PARSELINE(u8R"(OFFSET="4096X")", &header, &foundNames);
     ASSERT_TRUE(res.has_value());
     EXPECT_EQ(res.value().type(), XarParserErrorType::INVALID_OFFSET);
     EXPECT_EQ(
@@ -151,8 +154,8 @@ TEST(XarParserParseLineTest, TestParseOffset) {
   { // Out of range
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
-        u8R"(OFFSET="999999999999999999999")", &header, &foundNames);
+    auto res =
+        PARSELINE(u8R"(OFFSET="999999999999999999999")", &header, &foundNames);
     ASSERT_TRUE(res.has_value());
     EXPECT_EQ(res.value().type(), XarParserErrorType::INVALID_OFFSET);
     EXPECT_EQ(res.value().getErrorMessage(), "Invalid offset: Out of range");
@@ -160,7 +163,7 @@ TEST(XarParserParseLineTest, TestParseOffset) {
   { // Not a positive multiple of 4096
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(u8R"(OFFSET="1234")", &header, &foundNames);
+    auto res = PARSELINE(u8R"(OFFSET="1234")", &header, &foundNames);
     ASSERT_TRUE(res.has_value());
     EXPECT_EQ(res.value().type(), XarParserErrorType::INVALID_OFFSET);
     EXPECT_EQ(
@@ -173,12 +176,11 @@ TEST(XarParserParseLineTest, TestParseSimpleParameters) {
   XarHeader header;
   std::set<std::string> foundNames{};
   {
-    auto res =
-        detail::parseLine(u8R"(VERSION="1624969851")", &header, &foundNames);
+    auto res = PARSELINE(u8R"(VERSION="1624969851")", &header, &foundNames);
     EXPECT_FALSE(res.has_value()) << res.value().getErrorMessage();
   }
   {
-    auto res = detail::parseLine(u8R"(UUID="d770950c")", &header, &foundNames);
+    auto res = PARSELINE(u8R"(UUID="d770950c")", &header, &foundNames);
     EXPECT_FALSE(res.has_value()) << res.value().getErrorMessage();
   }
   EXPECT_THAT(foundNames, ::testing::UnorderedElementsAre(kVersion, kUuidName));
@@ -190,7 +192,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Single name
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES="'invoke_xar_via_trampoline'")",
         &header,
         &foundNames);
@@ -203,7 +205,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Multiple names. This tests cases where {' ', '\\', '='} are in names.
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES="'invoke_xar_via_trampoline' ' tramp 1 ' 'tramp\2' 'tramp=3'")",
         &header,
         &foundNames);
@@ -217,7 +219,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Case with single space as trampoline name
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES="' ' 'invoke_xar_via_trampoline'")",
         &header,
         &foundNames);
@@ -230,8 +232,8 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Empty.
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
-        u8R"(XAREXEC_TRAMPOLINE_NAMES="")", &header, &foundNames);
+    auto res =
+        PARSELINE(u8R"(XAREXEC_TRAMPOLINE_NAMES="")", &header, &foundNames);
     EXPECT_TRUE(res.has_value());
     EXPECT_EQ(res.value().type(), XarParserErrorType::TRAMPOLINE_ERROR)
         << res.value().getErrorMessage();
@@ -239,8 +241,8 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Empty trampoline name
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
-        u8R"(XAREXEC_TRAMPOLINE_NAMES="''")", &header, &foundNames);
+    auto res =
+        PARSELINE(u8R"(XAREXEC_TRAMPOLINE_NAMES="''")", &header, &foundNames);
     EXPECT_TRUE(res.has_value());
     EXPECT_EQ(res.value().type(), XarParserErrorType::TRAMPOLINE_ERROR)
         << res.value().getErrorMessage();
@@ -248,7 +250,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Single name but with unexpected space at front
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES=" 'invoke_xar_via_trampoline'")",
         &header,
         &foundNames);
@@ -259,7 +261,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Single name but with unexpected space at end
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES="'invoke_xar_via_trampoline' ")",
         &header,
         &foundNames);
@@ -270,7 +272,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Missing required name
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES="'tramp'")", &header, &foundNames);
     EXPECT_TRUE(res.has_value());
     EXPECT_EQ(res.value().type(), XarParserErrorType::TRAMPOLINE_ERROR)
@@ -279,7 +281,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Single quote in name
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES="'invoke_xar_via_'trampoline' 'tramp'")",
         &header,
         &foundNames);
@@ -290,7 +292,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Extra spaces fails
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES="'invoke_xar_via_trampoline'  'tramp'")",
         &header,
         &foundNames);
@@ -301,7 +303,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // No space separating names
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES="'invoke_xar_via_trampoline''tramp'")",
         &header,
         &foundNames);
@@ -312,7 +314,7 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   { // Unclosed quote
     XarHeader header;
     std::set<std::string> foundNames{};
-    auto res = detail::parseLine(
+    auto res = PARSELINE(
         u8R"(XAREXEC_TRAMPOLINE_NAMES="'invoke_xar_via_trampoline")",
         &header,
         &foundNames);
@@ -343,6 +345,17 @@ class XarParserTest : public ::testing::Test {
         /* magic */
         std::vector(kSquashfsMagic, kSquashfsMagic + sizeof(kSquashfsMagic)));
   }
+#if __cplusplus > 201703L // C++20 or newer
+  void makeXar(const char8_t* header) {
+    makeXar(reinterpret_cast<const char*>(header));
+  }
+  void makeXar(
+      const char8_t* header,
+      bool includeMagic,
+      const std::vector<uint8_t>& magic) {
+    makeXar(reinterpret_cast<const char*>(header), includeMagic, magic);
+  }
+#endif
 
   // Create a temporary file with a given XAR header.
   //
@@ -353,9 +366,9 @@ class XarParserTest : public ::testing::Test {
       const std::string& header,
       bool includeMagic,
       const std::vector<uint8_t>& magic) {
-    const auto filenameTemplate =
-        std::filesystem::temp_directory_path().u8string() +
-        "/test_xar_headerXXXXXX";
+    const auto filenameTemplate = std::filesystem::temp_directory_path()
+                                      .append("test_xar_headerXXXXXX")
+                                      .string();
     char* filename = new char[filenameTemplate.size() + 1];
     ::strncpy(filename, filenameTemplate.c_str(), filenameTemplate.size() + 1);
     fdHolder_ = std::make_unique<SelfClosingFdHolder>(::mkstemp(filename));
