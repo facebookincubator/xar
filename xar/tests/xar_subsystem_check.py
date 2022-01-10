@@ -39,13 +39,13 @@ for env in (
     assert env in os.environ, "%s not in environment" % env
 
 xar_mountpoint = Path(os.environ["FB_PAR_RUNTIME_FILES"])
-for file in ("xar_bootstrap.sh", "libtools_xar_%s-cxx-build-info-lib.so" % binary_name):
+for file in ("xar_bootstrap.sh", "libcxx-build-info.so"):
     assert os.access(xar_mountpoint / file, os.R_OK), "%s isn't accessible" % file
 
 if sys.platform == "linux":
     with open("/proc/self/maps") as maps_file:
         maps = maps_file.read()
-    for file in ("libtools_xar_%s-cxx-build-info-lib.so" % binary_name,):
+    for file in ("libcxx-build-info.so",):
         assert str(xar_mountpoint / file) in maps, "%s not preloaded" % file
 
 print(f"ARGV_0={sys.argv[0]}")
