@@ -247,7 +247,7 @@ XarParserResult parseXarHeader(int fd) noexcept {
     return makeErrorResult(
         XarParserErrorType::FILE_READ,
         "Failed to read bytes from fd: " + std::to_string(fd) +
-            " read returned " + std::to_string(res) + "with errno: " + errMsg);
+            " read returned " + std::to_string(res) + " with errno: " + errMsg);
   }
   buf.resize(res);
 
@@ -262,7 +262,7 @@ XarParserResult parseXarHeader(int fd) noexcept {
         XarParserErrorType::UNEXPECTED_END_OF_FILE,
         "Failed to get first line which should contain shebang");
   } else if (currentLine->rfind(kShebang, 0) != 0) {
-    return makeErrorResult(XarParserErrorType::INVALID_SHEBANG, *currentLine);
+    return makeErrorResult(XarParserErrorType::INVALID_SHEBANG);
   }
   currentLine++;
 
