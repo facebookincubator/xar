@@ -7,8 +7,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import os
 
 
-def get_runtime_path():
-    # type: (...) -> str
+def get_runtime_path() -> str:
     """Return the location of the runtime files directory"""
 
     runtime_path = os.getenv("XAR_RUNTIME_FILES")
