@@ -22,7 +22,7 @@ import uuid
 
 logger = logging.getLogger("xar")
 
-if os.path.exists("/etc/centos-release"):
+if os.path.exists("/etc/redhat-release"):
     NOGROUP = "nobody"
 else:
     # Works for debian and darwin for sure
