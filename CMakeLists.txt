@@ -12,6 +12,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 option(XAR_BUILD_TESTS "Compile XAR tests" off)
 option(XAR_INSTALL "Enable installation of XAR" on)
 
+# Logging macros
+set(logging_srcs xar/Logging.h xar/Logging.cpp)
+add_library(Logging ${logging_srcs})
+
 # xar helpers (easier to build as a library)
 set(xarlib_srcs xar/XarHelpers.h xar/XarHelpers.cpp)
 if(APPLE)
@@ -32,7 +36,7 @@ target_include_directories(XarHelperLib
 set(xarexec "xarexec_fuse")
 set(${xarexec} xar/XarExecFuse.cpp)
 add_executable(${xarexec} xar/XarExecFuse.cpp)
-target_link_libraries(${xarexec} XarHelperLib)
+target_link_libraries(${xarexec} Logging XarHelperLib)
 
 # xarexec_fuse install
 if (XAR_INSTALL)
@@ -46,6 +50,7 @@ if (XAR_BUILD_TESTS)
     find_package(GTest REQUIRED)
     add_executable(XarTests xar/XarHelpersTest.cpp)
     target_link_libraries(XarTests
+        Logging
         XarHelperLib
         GTest::GTest
         GTest::Main
