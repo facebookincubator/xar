@@ -17,7 +17,7 @@ set(logging_srcs xar/Logging.h xar/Logging.cpp)
 add_library(Logging ${logging_srcs})
 
 # xar helpers (easier to build as a library)
-set(xarlib_srcs xar/XarHelpers.h xar/XarHelpers.cpp)
+set(xarlib_srcs xar/Logging.h xar/Logging.cpp xar/XarHelpers.h xar/XarHelpers.cpp)
 if(APPLE)
     list(APPEND xarlib_srcs xar/XarMacOS.cpp)
 elseif(UNIX AND NOT APPLE)  # otherwise known as "Linux"
