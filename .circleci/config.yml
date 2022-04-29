@@ -2,7 +2,7 @@
   jobs:
     build:
       docker:
-        - image: circleci/python:3.7.3-stretch
+        - image: cimg/python:3.7
       steps:
         - checkout
         - run:
@@ -10,7 +10,7 @@
             command: |
               sudo apt-get update
               sudo apt-get install -y cmake
-              sudo pip install tox
+              pip install tox
         - run:
             name: Installing zstd
             working_directory: ~/zstd
@@ -22,8 +22,8 @@
             name: Installing squashfs-tools
             working_directory: ~/squashfs-tools
             command: |
-              wget https://github.com/plougher/squashfs-tools/archive/fb33dfc32b131a1162dcf0e35bd88254ae10e265.tar.gz -O - | tar -xz
-              cd squashfs-tools-fb33dfc32b131a1162dcf0e35bd88254ae10e265/squashfs-tools
+              wget https://github.com/plougher/squashfs-tools/archive/refs/tags/4.5.1.tar.gz -O - | tar -xz
+              cd squashfs-tools-4.5.1/squashfs-tools
               make ZSTD_SUPPORT=1 && sudo make install
         - run:
             name: Installing gtest
