@@ -39,7 +39,6 @@ if PY2:
     def native(s, encoding="ascii"):
         return s
 
-
 else:
 
     def native(s, encoding="ascii"):
