@@ -77,13 +77,15 @@ std::optional<XarParserError> parseLine(
 // Returns the header of XAR if and only if fd points to a file beginning with a
 // valid XAR header. This does not verify that the rest of the xar is valid
 // (e.g. squashfs image is mountable, xarexec_target and trampolines exist).
+//
+// Caller is responsible for ensuring fd is closed when it's no longer needed
 XarParserResult parseXarHeader(int fd) noexcept;
 
 // Returns the header of XAR if and only if xar_path points to a file beginning
 // with a valid XAR header. This does not verify that the rest of the xar is
 // valid (e.g. that squashfs image is mountable, xaraexec_target and trampolines
 // exist).
-XarParserResult parseXarHeader(const std::string& xar_path) noexcept;
+XarParserResult parseXarHeader(const std::string& xarPath) noexcept;
 
 } // namespace xar
 } // namespace tools

@@ -53,6 +53,13 @@ ssize_t wrapFull(F f, int fd, void* buf, size_t count) {
 
 } // namespace detail
 
+class SelfClosingFdHolder {
+ public:
+  explicit SelfClosingFdHolder(int fd);
+  ~SelfClosingFdHolder();
+  const int fd_;
+};
+
 /**
  * Convenience wrappers around some commonly used system calls.  The *NoInt
  * wrappers retry on EINTR.  The *Full wrappers retry on EINTR and also loop

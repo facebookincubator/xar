@@ -9,6 +9,14 @@
 namespace tools {
 namespace xar {
 
+SelfClosingFdHolder::SelfClosingFdHolder(int fd) : fd_{fd} {}
+
+SelfClosingFdHolder::~SelfClosingFdHolder() {
+  if (fd_ != -1) {
+    closeNoInt(fd_);
+  }
+}
+
 int openNoInt(const char* name, int flags, mode_t mode) {
   auto openWrapper = [&] { return open(name, flags, mode); };
   return int(detail::wrapNoInt(openWrapper));

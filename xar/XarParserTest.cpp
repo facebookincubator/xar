@@ -324,17 +324,6 @@ TEST(XarParserParseLineTest, TestParseTrampolineNames) {
   }
 }
 
-class SelfClosingFdHolder {
- public:
-  explicit SelfClosingFdHolder(int fd) : fd_{fd} {}
-  ~SelfClosingFdHolder() {
-    if (fd_ != -1) {
-      tools::xar::closeNoInt(fd_);
-    }
-  }
-  const int fd_;
-};
-
 class XarParserTest : public ::testing::Test {
  protected:
   // Create a temporary file with a given XAR header with squashfs magic added.
@@ -371,7 +360,8 @@ class XarParserTest : public ::testing::Test {
                                       .string();
     char* filename = new char[filenameTemplate.size() + 1];
     ::strncpy(filename, filenameTemplate.c_str(), filenameTemplate.size() + 1);
-    fdHolder_ = std::make_unique<SelfClosingFdHolder>(::mkstemp(filename));
+    fdHolder_ =
+        std::make_unique<tools::xar::SelfClosingFdHolder>(::mkstemp(filename));
     ASSERT_GE(fdHolder_->fd_, 0) << "Failed to make temporary file" << errno;
     // Delete the temp file later on ::close
     ::unlink(filename);
@@ -397,7 +387,7 @@ class XarParserTest : public ::testing::Test {
   }
 
  private:
-  std::unique_ptr<SelfClosingFdHolder> fdHolder_;
+  std::unique_ptr<tools::xar::SelfClosingFdHolder> fdHolder_;
 };
 
 TEST_F(XarParserTest, TestValidHeader) {

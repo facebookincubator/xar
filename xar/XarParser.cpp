@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <memory>
 #include <numeric>
 
 namespace tools {
@@ -347,13 +348,14 @@ XarParserResult parseXarHeader(int fd) noexcept {
   return XarParserResult(xarHeader);
 }
 
-XarParserResult parseXarHeader(const std::string& xar_path) noexcept {
-  int fd = tools::xar::openNoInt(xar_path.c_str(), O_RDONLY | O_CLOEXEC);
-  if (fd < 0) {
+XarParserResult parseXarHeader(const std::string& xarPath) noexcept {
+  const auto fdHolder = std::make_unique<tools::xar::SelfClosingFdHolder>(
+      tools::xar::openNoInt(xarPath.c_str(), O_RDONLY | O_CLOEXEC));
+  if (fdHolder->fd_ < 0) {
     return makeErrorResult(
         XarParserErrorType::FILE_OPEN, "errno: " + std::to_string(errno));
   }
-  return parseXarHeader(fd);
+  return parseXarHeader(fdHolder->fd_);
 }
 
 } // namespace xar
