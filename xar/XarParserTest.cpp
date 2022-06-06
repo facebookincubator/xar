@@ -652,7 +652,7 @@ DEPENDENCIES=""
 echo This XAR file should not be executed by sh
 exit 1
 # Actual squashfs file begins at 4096)",
-        /* includeMagic */ false,
+        /* includeMagic */ true,
         {0xFF, kSquashfsMagic[0], kSquashfsMagic[1], kSquashfsMagic[2]});
     const auto maybeHeader = parseXarHeader(getFd());
     ASSERT_TRUE(maybeHeader.hasError());
@@ -702,6 +702,26 @@ VERSION="1624969851"
 XAREXEC_TARGET="xar_bootstrap.sh"
 XAREXEC_TRAMPOLINE_NAMES="'lookup.xar' 'invoke_xar_via_trampoline'"
 DEPENDENCIES="")",
+        /* includeMagic */ false,
+        /* magic */ {});
+    const auto maybeHeader = parseXarHeader(getFd());
+    ASSERT_TRUE(maybeHeader.hasError());
+    EXPECT_EQ(
+        maybeHeader.error().type(), XarParserErrorType::UNEXPECTED_END_OF_FILE)
+        << maybeHeader.error().getErrorMessage();
+  }
+  { // Have all required variables and #xar_stop but file not long enough
+    makeXar(
+        u8R"(#!/usr/bin/env xarexec_fuse
+OFFSET="4096"
+UUID="d770950c"
+VERSION="1624969851"
+XAREXEC_TARGET="xar_bootstrap.sh"
+DEPENDENCIES=""
+#xar_stop
+echo This XAR file should not be executed by sh
+exit 1
+# Actual squashfs file begins at 4096)",
         /* includeMagic */ false,
         /* magic */ {});
     const auto maybeHeader = parseXarHeader(getFd());

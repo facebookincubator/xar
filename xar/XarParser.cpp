@@ -187,7 +187,7 @@ std::string XarParserError::getErrorMessage() const noexcept {
       case XarParserErrorType::FILE_READ:
         return "Failed to read file: ";
       case XarParserErrorType::INCORRECT_MAGIC:
-        return "Incorrect squashfs magic";
+        return "Incorrect squashfs magic: ";
       case XarParserErrorType::INVALID_OFFSET:
         return "Invalid offset: ";
       case XarParserErrorType::INVALID_SHEBANG:
@@ -336,6 +336,14 @@ XarParserResult parseXarHeader(int fd) noexcept {
         });
     return makeErrorResult(
         XarParserErrorType::MISSING_PARAMETERS, missingParamsString);
+  }
+
+  if (xarHeader.offset + sizeof(kSquashfsMagic) > buf.size()) {
+    return makeErrorResult(
+        XarParserErrorType::UNEXPECTED_END_OF_FILE,
+        std::to_string(xarHeader.offset + sizeof(kSquashfsMagic)) +
+            " (offset + size of squashfs magic) is greater than the size of the read buffer " +
+            std::to_string(buf.size()));
   }
 
   // Check for squashfs magic at OFFSET
