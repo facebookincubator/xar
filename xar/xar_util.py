@@ -51,8 +51,8 @@ def find_mksquashfs():
 
 
 class SquashfsOptions(object):
-    def __init__(self):
-        self.mksquashfs = find_mksquashfs()
+    def __init__(self, mksquashfs=None):
+        self.mksquashfs = mksquashfs or find_mksquashfs()
         self.compression_algorithm = "zstd"
         self.zstd_level = 16
         self.block_size = 256 * 1024
