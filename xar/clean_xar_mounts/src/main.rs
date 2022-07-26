@@ -19,7 +19,6 @@ use std::fs;
 use std::fs::File;
 use std::io::BufRead;
 use std::io::BufReader;
-use std::option::Option;
 use std::os::linux::fs::MetadataExt;
 use std::os::unix::io::RawFd;
 use std::path::PathBuf;
