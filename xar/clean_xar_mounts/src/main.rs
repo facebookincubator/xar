@@ -4,16 +4,6 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-use anyhow::Result;
-use clap::value_t;
-use clap::App;
-use clap::Arg;
-use lazy_static::lazy_static;
-use regex::Regex;
-use slog::debug;
-use slog::info;
-use slog::o;
-use slog::Drain;
 use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
@@ -29,6 +19,17 @@ use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
+
+use anyhow::Result;
+use clap::value_t;
+use clap::App;
+use clap::Arg;
+use lazy_static::lazy_static;
+use regex::Regex;
+use slog::debug;
+use slog::info;
+use slog::o;
+use slog::Drain;
 
 // jemalloc can be configured with a static string.  We have to
 // null-terminate it, but this works fine from Rust.
