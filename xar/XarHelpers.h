@@ -51,23 +51,23 @@ size_t delimSize(const std::string& s) {
 // function.
 template <typename DelimType>
 std::vector<std::string>
-split(const DelimType& delim, std::string s, const ssize_t nsplits = -1) {
+split(const DelimType& delim, std::string_view s, const ssize_t nsplits = -1) {
   std::vector<std::string> ret;
 
   while (true) {
     if (nsplits > -1 && ret.size() >= nsplits) {
-      ret.push_back(s);
+      ret.emplace_back(s.begin(), s.end());
       break;
     }
 
     auto next = s.find(delim);
     if (next == std::string::npos) {
-      ret.push_back(s);
+      ret.emplace_back(s.begin(), s.end());
       break;
     }
 
     ret.emplace_back(s.begin(), s.begin() + next);
-    s.erase(s.begin(), s.begin() + next + delimSize(delim));
+    s = s.substr(next + delimSize(delim));
   }
 
   return ret;
