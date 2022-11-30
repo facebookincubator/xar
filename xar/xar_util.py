@@ -106,6 +106,10 @@ class XarFactory(object):
         if sqopts.compression_algorithm == "zstd":
             cmd.extend(("-Xcompression-level", str(sqopts.zstd_level)))
 
+        if sqopts.compression_algorithm == "lz4hc":
+            cmd[-1] = "lz4"
+            cmd.append("-Xhc")
+
         if self.sort_file:
             cmd.extend(["-sort", self.sort_file])
 
