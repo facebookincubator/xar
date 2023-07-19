@@ -73,8 +73,8 @@ class XarUtilTest(xar_test_helpers.XarTestCase):
                     num_normal_files += 1
 
         # Two symlinks per normal file
-        self.assertEquals(num_normal_files, 7)
-        self.assertEquals(2 * num_normal_files, num_symlinks)
+        self.assertEqual(num_normal_files, 7)
+        self.assertEqual(2 * num_normal_files, num_symlinks)
 
         # Make sure only normal files are in the debuginfo dir.
         for dirname, _, filenames in os.walk(debuginfo_dir.path()):
@@ -102,11 +102,11 @@ class XarUtilTest(xar_test_helpers.XarTestCase):
         mp3_dir.delete()
 
     def test_align_offset(self):
-        self.assertEquals(0, xar_util._align_offset(0))
-        self.assertEquals(4096, xar_util._align_offset(1))
-        self.assertEquals(4096, xar_util._align_offset(4095))
-        self.assertEquals(4096, xar_util._align_offset(4096))
-        self.assertEquals(8192, xar_util._align_offset(4097))
+        self.assertEqual(0, xar_util._align_offset(0))
+        self.assertEqual(4096, xar_util._align_offset(1))
+        self.assertEqual(4096, xar_util._align_offset(4095))
+        self.assertEqual(4096, xar_util._align_offset(4096))
+        self.assertEqual(8192, xar_util._align_offset(4097))
 
     def test_long_header(self):
         """Test headers longer than 4096 bytes"""

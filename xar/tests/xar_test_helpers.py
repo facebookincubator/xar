@@ -24,7 +24,7 @@ class XarTestCase(unittest.TestCase):
         with open(xarfile, "rb") as fh:
             first_line = fh.readline()
             shebang = first_line.decode("utf-8").strip()
-            self.assertEquals(shebang, xar_builder.BORING_SHEBANG)
+            self.assertEqual(shebang, xar_builder.BORING_SHEBANG)
             saw_stop = False
             offset = None
             for line in fh:
