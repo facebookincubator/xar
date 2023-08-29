@@ -3,8 +3,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from __future__ import absolute_import, division, print_function, unicode_literals
-
 import base64
 import csv
 import hashlib
@@ -22,6 +20,7 @@ import zipfile
 import zipimport
 
 import pkg_resources
+
 from xar import xar_util
 from xar.compat import cache_from_source, native, source_from_cache
 from xar.vendor.wheel import install, paths, pkginfo
