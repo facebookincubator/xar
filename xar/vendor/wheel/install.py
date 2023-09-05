@@ -47,7 +47,7 @@ def parse_version(version):
     return parse_version(version)
 
 
-class reify(object):
+class reify:
     """Put the result of a method which uses this (non-data)
     descriptor decorator in the instance dict after the first call,
     effectively replacing the decorator with an instance variable.
@@ -69,7 +69,7 @@ class BadWheelFile(ValueError):
     pass
 
 
-class WheelFile(object):
+class WheelFile:
     """Parse wheel-specific attributes from a wheel (.whl) file and offer
     basic installation and verification support.
 

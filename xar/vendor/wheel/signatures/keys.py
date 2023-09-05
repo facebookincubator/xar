@@ -37,7 +37,7 @@ import os.path
 from ..util import native, load_config_paths, save_config_path
 
 
-class WheelKeys(object):
+class WheelKeys:
     SCHEMA = 1
     CONFIG_NAME = 'wheel.json'
 

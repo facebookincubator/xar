@@ -70,7 +70,7 @@ def binary(s):
     return s
 
 
-class HashingFile(object):
+class HashingFile:
     def __init__(self, path, mode, hashtype='sha256'):
         self.fd = open(path, mode)
         self.hashtype = hashtype

@@ -50,7 +50,7 @@ def find_mksquashfs():
     return "mksquashfs"
 
 
-class SquashfsOptions(object):
+class SquashfsOptions:
     def __init__(self, mksquashfs=None):
         self.mksquashfs = mksquashfs or find_mksquashfs()
         self.compression_algorithm = "zstd"
@@ -58,7 +58,7 @@ class SquashfsOptions(object):
         self.block_size = 256 * 1024
 
 
-class XarFactory(object):
+class XarFactory:
     """A class for creating XAR files.
 
     Pretty straight forward; take an input directory, output file, and some
@@ -169,7 +169,7 @@ def safe_rmtree(directory):
 
 
 # Simplified version of Chroot from PEX
-class StagingDirectory(object):
+class StagingDirectory:
     """
     Manages the staging directory.
     """
@@ -324,7 +324,7 @@ class StagingDirectory(object):
                     raise e
 
 
-class TemporaryFile(object):
+class TemporaryFile:
     """Wrapper around a temporary file that supports deepcopy()."""
 
     def __init__(self):

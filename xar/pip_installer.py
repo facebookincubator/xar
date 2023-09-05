@@ -26,7 +26,7 @@ class BuildException(Exception):
     pass
 
 
-class PipInstaller(object):
+class PipInstaller:
     """
     Installer function object for pkg_resources.working_set.resolve().
     It is called like `installer(requirement)` when the requirement can't be

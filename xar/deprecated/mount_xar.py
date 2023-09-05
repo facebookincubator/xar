@@ -55,7 +55,7 @@ def is_mounted(path):
     return parent_stat.st_dev != mp_stat.st_dev
 
 
-class XarFile(object):
+class XarFile:
     def __init__(self, filename):
         self.filename = filename
         root, self.extension = os.path.splitext(self.filename)

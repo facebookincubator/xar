@@ -18,7 +18,7 @@ BORING_SHEBANG = "#!/bin/echo This is not an executable XAR file."
 MAX_SHEBANG = 128  # from linux/include/linux/binfmts.h's BINPRM_BUF_SIZE
 
 
-class XarBuilder(object):
+class XarBuilder:
     """
     Handles the construction of a XAR.
     Files and directories can be added to the XAR until it is frozen, then it

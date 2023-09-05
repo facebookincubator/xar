@@ -170,7 +170,7 @@ def does_sha256_match(file, expected_hash):
     return native(hash) == expected_hash
 
 
-class Wheel(object):
+class Wheel:
     """
     Wrapper around a pkg_resources.DistInfoDistribution with Wheel specific
     helpers.
