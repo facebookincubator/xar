@@ -224,6 +224,10 @@ void usage() {
 } // namespace
 
 int main(int argc, char** argv) {
+  struct timeval tv;
+  gettimeofday(&tv, nullptr);
+  double launch_time = (double)tv.tv_usec / 1000000.0 + tv.tv_sec;
+  setenv("XAREXEC_LAUNCH_TIMESTAMP", std::to_string(launch_time).c_str(), true);
   XAR_CHECK_SIMPLE(getuid() == geteuid());
   // Set our umask to a good default for the files we create.  Save
   // the old value to restore before executing the XAR bootstrap
