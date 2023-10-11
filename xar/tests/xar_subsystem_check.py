@@ -39,14 +39,19 @@ for env in (
     assert env in os.environ, "%s not in environment" % env
 
 xar_mountpoint = Path(os.environ["FB_PAR_RUNTIME_FILES"])
-for file in ("xar_bootstrap.sh", "libcxx-build-info.so"):
+for file in ("xar_bootstrap.sh",):
     assert os.access(xar_mountpoint / file, os.R_OK), "%s isn't accessible" % file
 
+# When running in Linux, we expect either the Python interpreter (NativePython mode) or
+# at least one shared library to be mmap'd from inside the XAR's contents.  Verify this
+# by inspecting `/proc/self/maps` for something mmap'd from inside the XAR.
 if sys.platform == "linux":
     with open("/proc/self/maps") as maps_file:
-        maps = maps_file.read()
-    for file in ("libcxx-build-info.so",):
-        assert str(xar_mountpoint / file) in maps, "%s not preloaded" % file
+        maps = maps_file.read().splitlines()
+    has_mapped_files_from_xar = any(str(xar_mountpoint) in line for line in maps)
+    assert (
+        has_mapped_files_from_xar
+    ), "found at least one mmap'd file from the contents of the XAR"
 
 print(f"ARGV_0={sys.argv[0]}")
 print("ok")
