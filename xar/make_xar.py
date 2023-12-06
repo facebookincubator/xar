@@ -149,5 +149,9 @@ def main(args=None):
     return 0
 
 
-if __name__ == "__main__":
+def invoke_main() -> None:
     sys.exit(main())
+
+
+if __name__ == "__main__":
+    invoke_main()  # pragma: no cover
