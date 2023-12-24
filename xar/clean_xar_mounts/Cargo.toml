@@ -5,12 +5,12 @@ authors = ["chip <chip@fb.com>"]
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = { version = "1.0.52", features = ["backtrace"] }
 clap = "2.31"
 filetime = "0.2.8"
 lazy_static = "1.0.*"
 nix = "0.20.2"
 regex = "1.5.5"
-slog = "2.1.*"
+slog = "2.3.0"
 slog-term = "2.3.*"
 tempfile = "2.2.*"
