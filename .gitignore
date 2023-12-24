@@ -99,3 +99,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# Rust Cargo lock
+Cargo.lock
+
+# CCLS cache
+.ccls-cache
