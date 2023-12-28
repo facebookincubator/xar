@@ -5,7 +5,7 @@ authors = ["chip <chip@fb.com>"]
 edition = "2021"
 
 [dependencies]
-anyhow = { version = "1.0.52", features = ["backtrace"] }
+anyhow = { version = "1.0.75", features = ["backtrace"] }
 clap = "2.31"
 filetime = "0.2.8"
 lazy_static = "1.0.*"
